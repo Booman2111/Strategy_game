@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Wars Strategy Game</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Home Page / Main Menu -->
+    <div id="homePage" class="page active">
+        <div class="home-container">
+            <header class="home-header">
+                <h1>Advanced Wars Strategy</h1>
+                <p class="tagline">Turn-based tactical warfare</p>
+            </header>
+            
+            <div class="menu-buttons">
+                <button id="quickMatchBtn" class="menu-btn primary">
+                    <h3>Quick Match</h3>
+                    <p>Start playing with default settings</p>
+                </button>
+                
+                <button id="customRulesBtn" class="menu-btn secondary">
+                    <h3>Custom Rules</h3>
+                    <p>Customize game settings and maps</p>
+                </button>
+                
+                <button id="helpBtn" class="menu-btn tertiary">
+                    <h3>How to Play</h3>
+                    <p>Learn the game rules and controls</p>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Match Setup -->
+    <div id="quickMatchPage" class="page">
+        <div class="setup-container">
+            <header class="setup-header">
+                <button id="backFromQuickBtn" class="back-btn">← Back</button>
+                <h2>Quick Match Setup</h2>
+            </header>
+            
+            <div class="setup-content">
+                <div class="setting-group">
+                    <label for="quickGameMode">Game Mode:</label>
+                    <select id="quickGameMode">
+                        <option value="multiplayer" selected>Multiplayer</option>
+                        <option value="singleplayer">Single Player vs Bot</option>
+                    </select>
+                </div>
+                
+                <div class="setting-group">
+                    <label for="playerCount">Number of Players:</label>
+                    <select id="playerCount">
+                        <option value="2" selected>2 Players</option>
+                        <option value="3">3 Players</option>
+                        <option value="4">4 Players</option>
+                    </select>
+                </div>
+                
+                <div class="game-preview">
+                    <h3>Game Settings</h3>
+                    <ul>
+                        <li>Starting Money: 2,000</li>
+                        <li>Income per Turn: 500</li>
+                        <li>Actions per Turn: 5</li>
+                        <li>Map: Default (12x8)</li>
+                        <li>Victory: Capture Enemy HQ</li>
+                        <li>Turn Limit: None</li>
+                    </ul>
+                </div>
+                
+                <button id="startQuickGameBtn" class="start-btn">Start Game</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Rules Setup -->
+    <div id="customRulesPage" class="page">
+        <div class="setup-container">
+            <header class="setup-header">
+                <button id="backFromCustomBtn" class="back-btn">← Back</button>
+                <h2>Custom Rules Setup</h2>
+            </header>
+            
+            <div class="setup-content">
+                <div class="settings-grid">
+                    <!-- Player Settings -->
+                    <div class="setting-section">
+                        <h3>Players</h3>
+                        <div class="setting-group">
+                            <label for="gameMode">Game Mode:</label>
+                            <select id="gameMode">
+                                <option value="multiplayer" selected>Multiplayer</option>
+                                <option value="singleplayer">Single Player vs Bot</option>
+                            </select>
+                        </div>
+                        <div class="setting-group">
+                            <label for="customPlayerCount">Number of Players:</label>
+                            <select id="customPlayerCount">
+                                <option value="2" selected>2 Players</option>
+                                <option value="3">3 Players</option>
+                                <option value="4">4 Players</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- Economy Settings -->
+                    <div class="setting-section">
+                        <h3>Economy</h3>
+                        <div class="setting-group">
+                            <label for="startingMoney">Starting Money:</label>
+                            <input type="number" id="startingMoney" value="2000" min="500" max="10000" step="500">
+                        </div>
+                        <div class="setting-group">
+                            <label for="incomePerTurn">Income per Turn:</label>
+                            <input type="number" id="incomePerTurn" value="500" min="100" max="2000" step="100">
+                        </div>
+                    </div>
+                    
+                    <!-- Gameplay Settings -->
+                    <div class="setting-section">
+                        <h3>Gameplay</h3>
+                        <div class="setting-group">
+                            <label for="actionsPerTurn">Actions per Turn:</label>
+                            <input type="number" id="actionsPerTurn" value="5" min="1" max="10" step="1">
+                        </div>
+                        <div class="setting-group">
+                            <label for="turnLimitEnabled">Turn Limit:</label>
+                            <input type="checkbox" id="turnLimitEnabled">
+                        </div>
+                        <div class="setting-group" id="turnLimitGroup" style="display: none;">
+                            <label for="maxTurns">Maximum Turns:</label>
+                            <input type="number" id="maxTurns" value="50" min="10" max="200" step="5">
+                        </div>
+                    </div>
+                    
+                    <!-- Map Settings -->
+                    <div class="setting-section">
+                        <h3>Map</h3>
+                        <div class="setting-group">
+                            <label for="mapPreset">Map Preset:</label>
+                            <select id="mapPreset">
+                                <option value="default" selected>Default (12x8)</option>
+                                <option value="small">Small (8x6)</option>
+                                <option value="large">Large (16x10)</option>
+                                <option value="islands">Islands (12x8)</option>
+                                <option value="chokepoint">Chokepoint (12x8)</option>
+                            </select>
+                        </div>
+                        <div class="setting-group">
+                            <label for="mapSize">Custom Size:</label>
+                            <select id="mapSize">
+                                <option value="8x6">Small (8x6)</option>
+                                <option value="12x8" selected>Medium (12x8)</option>
+                                <option value="16x10">Large (16x10)</option>
+                                <option value="20x12">Extra Large (20x12)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <button id="startCustomGameBtn" class="start-btn">Start Custom Game</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Page (existing game interface) -->
+    <div id="gamePage" class="page">
+        <div id="gameContainer">
+            <!-- Game Header -->
+            <header id="gameHeader">
+                <div class="header-left">
+                    <button id="backToMenuBtn" class="back-btn small">← Menu</button>
+                    <h1>Advanced Wars Strategy</h1>
+                </div>
+                <div id="gameInfo">
+                    <div id="currentPlayer">
+                        <span id="playerTurn">Player 1's Turn</span>
+                        <div id="playerColor" class="player1-color"></div>
+                    </div>
+                    <div id="gameStats">
+                        <span id="turnCounter">Turn: 1</span>
+                        <button id="endTurnBtn">End Turn</button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Game Board Container -->
+            <div id="gameBoard">
+                <!-- Grid cells will be generated by JavaScript -->
+            </div>
+
+            <!-- Game UI Panel -->
+            <div id="gamePanel">
+                <!-- Unit Info Panel -->
+                <div id="unitInfo">
+                    <h3>Unit Information</h3>
+                    <div id="selectedUnit">
+                        <div id="unitIcon"></div>
+                        <div id="unitDetails">
+                            <p id="unitType">Select a unit</p>
+                            <p id="unitHealth">Health: --</p>
+                            <p id="unitMovement">Movement: --</p>
+                            <p id="unitAttack">Attack: --</p>
+                            <p id="unitCapture" style="display: none;">Capturing: --</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Actions Panel -->
+                <div id="actionsPanel">
+                    <h3>Actions</h3>
+                    
+                    <!-- Mode Selection -->
+                    <div id="modeSelection" style="margin-bottom: 10px; display: none;">
+                        <h4>Select Mode:</h4>
+                        <button id="moveBtn" class="action-btn mode-btn" disabled>📍 Move Mode</button>
+                        <button id="attackBtn" class="action-btn mode-btn" disabled>⚔️ Attack Mode</button>
+                        <div id="modeIndicator" style="margin-top: 5px; font-weight: bold; color: #3498db;">Mode: None Selected</div>
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <div id="actionButtons">
+                        <button id="captureBtn" class="action-btn" disabled style="display: none;">Capture</button>
+                        <button id="waitBtn" class="action-btn" disabled>Wait</button>
+                        <button id="cancelBtn" class="action-btn" disabled>Cancel</button>
+                    </div>
+                    
+                    <h4>Build Units</h4>
+                    <button id="buildInfantryBtn" class="build-btn" disabled>Infantry (800)</button>
+                    <button id="buildTankBtn" class="build-btn" disabled>Tank (2500)</button>
+                    <button id="buildArtilleryBtn" class="build-btn" disabled>Artillery (2000)</button>
+                </div>
+
+                <!-- Legend Panel -->
+                <div id="legendPanel">
+                    <h3>Legend</h3>
+                    <div id="terrainLegend">
+                        <h4>Terrain</h4>
+                        <div class="legend-item">
+                            <div class="legend-tile terrain-plains"></div>
+                            <span>Plains (No bonus)</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-tile terrain-forest"></div>
+                            <span>Forest (+1 Defense)</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-tile terrain-city"></div>
+                            <span>City (+2 Defense)</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-tile terrain-hq"></div>
+                            <span>HQ (+3 Defense)</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-tile terrain-water"></div>
+                            <span>Water (Infantry Only)</span>
+                        </div>
+                    </div>
+                    <div id="unitLegend">
+                        <h4>Units</h4>
+                        <div class="legend-item">
+                            <div class="legend-unit unit player1">I</div>
+                            <span>Infantry (Move: 3, Attack: 1)</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-unit unit player1">T</div>
+                            <span>Tank (Move: 4, Attack: 1)</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-unit unit player1">A</div>
+                            <span>Artillery (Move: 1, Attack: 3)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Game Log -->
+                <div id="gameLog">
+                    <h3>Game Log</h3>
+                    <div id="logMessages">
+                        <p>Game started. Player 1's turn.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Victory Modal -->
+            <div id="victoryModal" class="modal hidden">
+                <div class="modal-content">
+                    <h2 id="victoryMessage">Victory!</h2>
+                    <p id="victoryDetails">Player 1 wins!</p>
+                    <button id="newGameBtn">New Game</button>
+                    <button id="backToMenuFromVictoryBtn">Back to Menu</button>
+                </div>
+            </div>
+
+            <!-- Game Controls -->
+            <div id="gameControls">
+                <button id="newGameButton">New Game</button>
+                <button id="helpButton">Help</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Help Modal -->
+    <div id="helpModal" class="modal hidden">
+        <div class="modal-content">
+            <h2>How to Play</h2>
+            <div id="helpContent">
+                <h3>Objective</h3>
+                <p>Capture the enemy's headquarters to win the game.</p>
+                
+                <h3>Actions System</h3>
+                <p>Each turn you have a limited number of actions (default: 5). Moving, attacking, and building units consume actions.</p>
+                
+                <h3>Economy</h3>
+                <p>You start with money and earn income each turn. Use money to build new units at your cities and headquarters.</p>
+                
+                <h3>Controls</h3>
+                <ul>
+                    <li>Click a unit to select it</li>
+                    <li>Click a highlighted tile to move</li>
+                    <li>Click an enemy unit to attack (if in range)</li>
+                    <li>Click your cities/HQ to build units</li>
+                    <li>Use action buttons for special commands</li>
+                </ul>
+                
+                <h3>Unit Types</h3>
+                <ul>
+                    <li><strong>Infantry:</strong> Basic unit, can capture buildings, can move through water (Cost: 800, Actions: 1)</li>
+                    <li><strong>Tank:</strong> Strong attack, high mobility (Cost: 2500, Actions: 2)</li>
+                    <li><strong>Artillery:</strong> Long range, cannot move and attack same turn (Cost: 2000, Actions: 2)</li>
+                </ul>
+                
+                <h3>Terrain Effects</h3>
+                <ul>
+                    <li><strong>Plains:</strong> No bonus</li>
+                    <li><strong>Forest:</strong> +1 Defense</li>
+                    <li><strong>City:</strong> +2 Defense, can be captured</li>
+                    <li><strong>HQ:</strong> +3 Defense, must protect to win</li>
+                    <li><strong>Water:</strong> Impassable for tanks/artillery, infantry can cross (costs 2 movement)</li>
+                </ul>
+            </div>
+            <button id="closeHelpBtn">Close</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
