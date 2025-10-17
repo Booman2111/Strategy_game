@@ -6,6 +6,7 @@ class StrategyGame {
         this.gameSettings = gameSettings || {
             players: 2,
             gameMode: 'multiplayer',
+            botDifficulties: { 2: 'medium' }, // difficulty per player number
             startingMoney: 2000,
             incomePerTurn: 500,
             actionsPerTurn: 5,
@@ -63,7 +64,9 @@ class StrategyGame {
                 defense: 60,
                 cost: 800,
                 canCapture: true,
-                actionCost: 1
+                actionCost: 1,
+                transportSize: 1,
+                terrain: 'land'
             },
             tank: {
                 name: 'Tank',
@@ -76,7 +79,9 @@ class StrategyGame {
                 defense: 70,
                 cost: 2500,
                 canCapture: false,
-                actionCost: 2
+                actionCost: 1,
+                transportSize: 2,
+                terrain: 'land'
             },
             artillery: {
                 name: 'Artillery',
@@ -89,7 +94,55 @@ class StrategyGame {
                 defense: 50,
                 cost: 2000,
                 canCapture: false,
-                actionCost: 2
+                actionCost: 1,
+                transportSize: 2,
+                terrain: 'land'
+            },
+            transport: {
+                name: 'Transport Ship',
+                symbol: 'TS',
+                health: 100,
+                maxHealth: 100,
+                movement: 5,
+                attackRange: 0,
+                attackPower: 0,
+                defense: 40,
+                cost: 3000,
+                canCapture: false,
+                actionCost: 2,
+                transportCapacity: 4,
+                transportedUnits: [],
+                terrain: 'water'
+            },
+            battleship: {
+                name: 'Battleship',
+                symbol: 'BS',
+                health: 100,
+                maxHealth: 100,
+                movement: 3,
+                attackRange: 4,
+                attackPower: 95,
+                defense: 80,
+                cost: 4500,
+                canCapture: false,
+                actionCost: 3,
+                terrain: 'water'
+            },
+            submarine: {
+                name: 'Submarine',
+                symbol: 'SUB',
+                health: 100,
+                maxHealth: 100,
+                movement: 4,
+                attackRange: 1,
+                attackPower: 75,
+                defense: 60,
+                cost: 3500,
+                canCapture: false,
+                actionCost: 2,
+                canSubmerge: true,
+                isSubmerged: false,
+                terrain: 'water'
             }
         };
     }
@@ -128,6 +181,13 @@ class StrategyGame {
                 defenseBonus: 0,
                 movementCost: 999,
                 className: 'terrain-water'
+            },
+            seaport: {
+                name: 'Sea Port',
+                defenseBonus: 1,
+                movementCost: 1,
+                className: 'terrain-seaport',
+                capturable: true
             }
         };
     }
@@ -166,6 +226,9 @@ class StrategyGame {
                 break;
             case 'chokepoint':
                 this.generateChokepointMap();
+                break;
+            case 'naval':
+                this.generateNavalMap();
                 break;
             default:
                 this.generateDefaultMap();
@@ -331,7 +394,113 @@ class StrategyGame {
         });
     }
 
+    generateNavalMap() {
+        // Make everything water first (90% water map)
+        for (let y = 0; y < this.mapHeight; y++) {
+            for (let x = 0; x < this.mapWidth; x++) {
+                this.gameBoard[y][x].terrain = 'water';
+            }
+        }
+
+        // Create center island (5x5)
+        const centerX = Math.floor(this.mapWidth / 2);
+        const centerY = Math.floor(this.mapHeight / 2);
+        
+        for (let dy = -2; dy <= 2; dy++) {
+            for (let dx = -2; dx <= 2; dx++) {
+                const x = centerX + dx;
+                const y = centerY + dy;
+                if (this.isValidPosition(x, y)) {
+                    this.gameBoard[y][x].terrain = 'plains';
+                }
+            }
+        }
+
+        // Add cities on center island
+        if (this.isValidPosition(centerX, centerY)) {
+            this.gameBoard[centerY][centerX].terrain = 'city';
+        }
+        if (this.isValidPosition(centerX - 1, centerY - 1)) {
+            this.gameBoard[centerY - 1][centerX - 1].terrain = 'city';
+        }
+        if (this.isValidPosition(centerX + 1, centerY + 1)) {
+            this.gameBoard[centerY + 1][centerX + 1].terrain = 'city';
+        }
+
+        // Create player HQ islands (3x3 each)
+        const playerPositions = this.getPlayerHQPositions();
+        
+        playerPositions.forEach((pos, index) => {
+            const player = index + 1;
+            if (player <= this.gameSettings.players) {
+                this.createPlayerIsland(pos.x, pos.y, player);
+            }
+        });
+
+        // Add sea ports around the map
+        this.addSeaPorts();
+    }
+
+    getPlayerHQPositions() {
+        // Return corner positions for HQ islands
+        return [
+            { x: 1, y: 1 },                                    // Player 1: top-left
+            { x: this.mapWidth - 2, y: this.mapHeight - 2 },   // Player 2: bottom-right
+            { x: this.mapWidth - 2, y: 1 },                    // Player 3: top-right
+            { x: 1, y: this.mapHeight - 2 }                    // Player 4: bottom-left
+        ];
+    }
+
+    createPlayerIsland(centerX, centerY, player) {
+        // Create 3x3 island
+        for (let dy = -1; dy <= 1; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+                const x = centerX + dx;
+                const y = centerY + dy;
+                if (this.isValidPosition(x, y)) {
+                    this.gameBoard[y][x].terrain = 'plains';
+                }
+            }
+        }
+
+        // Place HQ in center
+        if (this.isValidPosition(centerX, centerY)) {
+            this.gameBoard[centerY][centerX].terrain = 'hq';
+            this.gameBoard[centerY][centerX].owner = player;
+        }
+
+        // Add a city on the island
+        const cityX = centerX + (player % 2 === 1 ? -1 : 1);
+        const cityY = centerY + (player <= 2 ? -1 : 1);
+        if (this.isValidPosition(cityX, cityY)) {
+            this.gameBoard[cityY][cityX].terrain = 'city';
+        }
+    }
+
+    addSeaPorts() {
+        // Add sea ports at strategic water locations
+        const seaPortPositions = [
+            { x: Math.floor(this.mapWidth / 4), y: Math.floor(this.mapHeight / 4) },
+            { x: Math.floor(3 * this.mapWidth / 4), y: Math.floor(this.mapHeight / 4) },
+            { x: Math.floor(this.mapWidth / 4), y: Math.floor(3 * this.mapHeight / 4) },
+            { x: Math.floor(3 * this.mapWidth / 4), y: Math.floor(3 * this.mapHeight / 4) },
+            { x: Math.floor(this.mapWidth / 2), y: 2 },
+            { x: Math.floor(this.mapWidth / 2), y: this.mapHeight - 3 }
+        ];
+
+        seaPortPositions.forEach(pos => {
+            if (this.isValidPosition(pos.x, pos.y) && this.gameBoard[pos.y][pos.x].terrain === 'water') {
+                this.gameBoard[pos.y][pos.x].terrain = 'seaport';
+            }
+        });
+    }
+
     placeHeadquarters() {
+        // Skip if naval map (HQs are placed during island creation)
+        if (this.gameSettings.mapPreset === 'naval') {
+            return;
+        }
+        
         // Place HQs based on number of players
         const players = this.gameSettings.players;
         
@@ -364,6 +533,27 @@ class StrategyGame {
 
     placeInitialUnits() {
         const players = this.gameSettings.players;
+        
+        if (this.gameSettings.mapPreset === 'naval') {
+            // Naval map initial units
+            const playerPositions = this.getPlayerHQPositions();
+            
+            for (let i = 0; i < players; i++) {
+                const player = i + 1;
+                const pos = playerPositions[i];
+                
+                // Place infantry on HQ island
+                this.addUnit(pos.x - 1, pos.y, 'infantry', player);
+                this.addUnit(pos.x + 1, pos.y, 'infantry', player);
+                
+                // Place initial transport ship in nearby water
+                const waterPos = this.findNearestWater(pos.x, pos.y);
+                if (waterPos) {
+                    this.addUnit(waterPos.x, waterPos.y, 'transport', player);
+                }
+            }
+            return;
+        }
         
         // Starting units for each player based on number of players
         if (players === 2) {
@@ -409,6 +599,26 @@ class StrategyGame {
         }
     }
 
+    findNearestWater(x, y) {
+        // Find nearest water tile for ship placement
+        for (let radius = 1; radius <= 5; radius++) {
+            for (let dy = -radius; dy <= radius; dy++) {
+                for (let dx = -radius; dx <= radius; dx++) {
+                    if (Math.abs(dx) + Math.abs(dy) === radius) {
+                        const newX = x + dx;
+                        const newY = y + dy;
+                        if (this.isValidPosition(newX, newY) && 
+                            this.gameBoard[newY][newX].terrain === 'water' &&
+                            !this.gameBoard[newY][newX].unit) {
+                            return { x: newX, y: newY };
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
     addUnit(x, y, type, player) {
         if (!this.isValidPosition(x, y) || this.gameBoard[y][x].unit) {
             return false;
@@ -435,7 +645,14 @@ class StrategyGame {
             symbol: unitTemplate.symbol,
             actionCost: unitTemplate.actionCost,
             captureProgress: 0, // Progress towards capturing current building (0-3)
-            capturingBuildingPos: null // Position of building being captured {x, y}
+            capturingBuildingPos: null, // Position of building being captured {x, y}
+            terrain: unitTemplate.terrain || 'land',
+            transportSize: unitTemplate.transportSize || 1,
+            // Ship-specific properties
+            transportCapacity: unitTemplate.transportCapacity || 0,
+            transportedUnits: unitTemplate.transportedUnits ? [...unitTemplate.transportedUnits] : [],
+            canSubmerge: unitTemplate.canSubmerge || false,
+            isSubmerged: unitTemplate.isSubmerged || false
         };
 
         this.units.push(unit);
@@ -449,6 +666,22 @@ class StrategyGame {
 
     renderBoard() {
         const boardElement = document.getElementById('gameBoard');
+        
+        // Store existing highlight classes before clearing
+        const existingHighlights = new Map();
+        const existingTiles = boardElement.querySelectorAll('.tile');
+        existingTiles.forEach(tile => {
+            const x = tile.dataset.x;
+            const y = tile.dataset.y;
+            const key = `${x},${y}`;
+            const hasMovable = tile.classList.contains('movable');
+            const hasAttackable = tile.classList.contains('attackable');
+            const hasSelected = tile.classList.contains('selected');
+            if (hasMovable || hasAttackable || hasSelected) {
+                existingHighlights.set(key, { hasMovable, hasAttackable, hasSelected });
+            }
+        });
+        
         boardElement.innerHTML = '';
 
         for (let y = 0; y < this.mapHeight; y++) {
@@ -474,6 +707,22 @@ class StrategyGame {
                     const unitElement = document.createElement('div');
                     unitElement.className = `unit player${cell.unit.player}`;
                     unitElement.textContent = cell.unit.symbol;
+                    
+                    // Add special styling for submarines
+                    if (cell.unit.type === 'submarine') {
+                        if (cell.unit.isSubmerged && cell.unit.player !== this.currentPlayer) {
+                            // Hide enemy submerged submarines
+                            unitElement.style.display = 'none';
+                        } else if (cell.unit.isSubmerged) {
+                            // Show own submerged submarines with special styling
+                            unitElement.classList.add('submerged');
+                        }
+                    }
+                    
+                    // Add cargo indicator for transport ships
+                    if (cell.unit.type === 'transport' && cell.unit.transportedUnits.length > 0) {
+                        unitElement.classList.add('has-cargo');
+                    }
                     
                     // Add health indicator
                     const healthPercent = cell.unit.health / cell.unit.maxHealth;
@@ -518,6 +767,16 @@ class StrategyGame {
                 }
                 
                 tile.addEventListener('click', () => this.handleTileClick(x, y));
+                
+                // Restore highlight classes if they existed
+                const key = `${x},${y}`;
+                const highlights = existingHighlights.get(key);
+                if (highlights) {
+                    if (highlights.hasMovable) tile.classList.add('movable');
+                    if (highlights.hasAttackable) tile.classList.add('attackable');
+                    if (highlights.hasSelected) tile.classList.add('selected');
+                }
+                
                 boardElement.appendChild(tile);
             }
         }
@@ -532,6 +791,14 @@ class StrategyGame {
         }
 
         const cell = this.gameBoard[y][x];
+        
+        // Check for submarine surprise attack
+        if (cell.unit && cell.unit.type === 'submarine' && cell.unit.isSubmerged && 
+            cell.unit.player !== this.currentPlayer) {
+            // Enemy moved onto submerged submarine - surprise attack!
+            this.triggerSubmarineSurpriseAttack(cell.unit, x, y);
+            return;
+        }
         
         // If there's a unit on this tile
         if (cell.unit) {
@@ -552,7 +819,8 @@ class StrategyGame {
         } else {
             // Empty tile - check if it's a building for unit creation
             const terrainTypes = this.getTerrainTypes();
-            if ((cell.terrain === 'city' || cell.terrain === 'hq') && cell.owner === this.currentPlayer) {
+            if ((cell.terrain === 'city' || cell.terrain === 'hq' || cell.terrain === 'seaport') && 
+                cell.owner === this.currentPlayer) {
                 this.selectBuildingTile(x, y);
             }
             // Or try to move selected unit here (only in move mode)
@@ -566,6 +834,25 @@ class StrategyGame {
                 }
             }
         }
+    }
+
+    triggerSubmarineSurpriseAttack(submarine, x, y) {
+        // Surface the submarine
+        submarine.isSubmerged = false;
+        
+        // Check if there are enemy units on the same tile (shouldn't happen in normal movement)
+        // This handles the case where an enemy ship moves onto the submarine's tile
+        const enemyUnits = this.units.filter(unit => 
+            unit.x === x && unit.y === y && unit.player !== submarine.player
+        );
+        
+        if (enemyUnits.length > 0) {
+            const target = enemyUnits[0];
+            this.logMessage(`Submarine surfaces and surprise attacks ${target.type}!`);
+            this.performAttack(submarine, target);
+        }
+        
+        this.renderBoard();
     }
 
     setActionMode(mode) {
@@ -626,11 +913,10 @@ class StrategyGame {
         this.updateTileHighlighting();
         this.updateActionButtons();
         
-        // Show mode selection panel
-        document.getElementById('modeSelection').style.display = 'block';
-        this.updateModeIndicators();
+        // Show cascading context menu
+        this.showUnitContextMenu(unit);
         
-        this.logMessage(`Selected ${unit.type} at (${unit.x}, ${unit.y}) - Choose Move or Attack mode`);
+        this.logMessage(`Selected ${unit.type} at (${unit.x}, ${unit.y}) - Choose an action`);
     }
 
     clearHighlights() {
@@ -658,7 +944,7 @@ class StrategyGame {
         const attackablePositions = this.getAttackablePositions(this.selectedUnit);
         attackablePositions.forEach(([x, y]) => {
             const tile = document.querySelector(`[data-x="${x}"][data-y="${y}"]`);
-            if (tile && this.gameBoard[y][x].unit && this.gameBoard[y][x].unit.player !== this.currentPlayer) {
+            if (tile) {
                 tile.classList.add('attackable');
             }
         });
@@ -687,13 +973,21 @@ class StrategyGame {
                         const terrainTypes = this.getTerrainTypes();
                         const movementCost = terrainTypes[cell.terrain].movementCost;
                         
-                        // Check if unit can move through this terrain
+                        // Check if unit can move through this terrain based on unit type
                         let canMoveThrough = false;
-                        if (movementCost < 999) {
-                            canMoveThrough = true;
-                        } else if (cell.terrain === 'water' && unit.type === 'infantry') {
-                            // Infantry can move through water
-                            canMoveThrough = true;
+                        if (unit.terrain === 'water') {
+                            // Ships can move on water and sea ports
+                            if (cell.terrain === 'water' || cell.terrain === 'seaport') {
+                                canMoveThrough = true;
+                            }
+                        } else if (unit.terrain === 'land') {
+                            // Land units movement rules
+                            if (movementCost < 999) {
+                                canMoveThrough = true;
+                            } else if (cell.terrain === 'water' && unit.type === 'infantry') {
+                                // Infantry can move through water
+                                canMoveThrough = true;
+                            }
                         }
                         
                         // Check unit occupation rules
@@ -711,8 +1005,14 @@ class StrategyGame {
                         // Enemy unit - cannot move through or to
                         
                         if (canMoveThrough && canMoveToTile) {
-                            // Use actual movement cost, but treat water as cost 2 for infantry
-                            const actualMovementCost = (cell.terrain === 'water' && unit.type === 'infantry') ? 2 : movementCost;
+                            // Use actual movement cost
+                            let actualMovementCost = movementCost;
+                            if (cell.terrain === 'water' && unit.type === 'infantry') {
+                                actualMovementCost = 2;
+                            } else if (unit.terrain === 'water') {
+                                actualMovementCost = 1; // Ships move normally on water
+                            }
+                            
                             const newMovementUsed = movementUsed + actualMovementCost;
                             
                             if (newMovementUsed <= unit.movement) {
@@ -778,6 +1078,13 @@ class StrategyGame {
     }
 
     moveUnit(unit, newX, newY) {
+        // Safety check: don't move onto a tile occupied by a friendly unit
+        const targetCell = this.gameBoard[newY][newX];
+        if (targetCell.unit && targetCell.unit.player === unit.player && targetCell.unit !== unit) {
+            this.logMessage(`Cannot move ${unit.type}: tile occupied by friendly ${targetCell.unit.type}!`);
+            return;
+        }
+        
         // Remove unit from old position
         this.gameBoard[unit.y][unit.x].unit = null;
         
@@ -804,6 +1111,7 @@ class StrategyGame {
         
         this.clearHighlights();
         this.selectedUnit = null;
+        this.hideUnitContextMenu();
         this.renderBoard();
         this.updateUI();
     }
@@ -908,6 +1216,7 @@ class StrategyGame {
         attacker.hasMoved = true;
         this.selectedUnit = null;
         this.clearHighlights();
+        this.hideUnitContextMenu();
         this.renderBoard();
         this.updateUI();
         this.checkVictoryConditions();
@@ -918,11 +1227,15 @@ class StrategyGame {
         this.selectedBuildingTile = {x, y};
         this.selectedUnit = null;
         this.clearHighlights();
+        this.hideUnitContextMenu();
         
         const tile = document.querySelector(`[data-x="${x}"][data-y="${y}"]`);
         if (tile) {
             tile.classList.add('selected');
         }
+        
+        // Show building context menu
+        this.showBuildingContextMenu(x, y);
         
         this.updateUI();
         this.logMessage(`Selected building at (${x}, ${y}). Choose unit type to build.`);
@@ -968,6 +1281,7 @@ class StrategyGame {
             
             this.selectedBuildingTile = null;
             this.clearHighlights();
+            this.hideBuildingContextMenu();
             this.renderBoard();
             this.updateUI();
         }
@@ -990,6 +1304,13 @@ class StrategyGame {
     }
 
     destroyUnit(unit) {
+        // If it's a transport with cargo, destroy all transported units
+        if (unit.type === 'transport' && unit.transportedUnits && unit.transportedUnits.length > 0) {
+            const cargoCount = unit.transportedUnits.length;
+            this.logMessage(`${cargoCount} units destroyed with the transport!`);
+            unit.transportedUnits = []; // Clear cargo
+        }
+
         // Remove from units array
         this.units = this.units.filter(u => u.id !== unit.id);
         
@@ -1034,6 +1355,7 @@ class StrategyGame {
         this.selectedUnit = null;
         this.selectedBuildingTile = null;
         this.clearHighlights();
+        this.hideAllContextMenus();
         this.renderBoard();
         this.updateUI();
         
@@ -1139,10 +1461,96 @@ class StrategyGame {
         
         this.logMessage("Bot is thinking...");
         
+        // Difficulty-based thinking time
+        const thinkingTime = this.getAIThinkingTime();
+        
         // Add a delay to make AI actions visible
         setTimeout(() => {
             this.performAIActions();
-        }, 1000);
+        }, thinkingTime);
+    }
+    
+    getAIThinkingTime(player = this.currentPlayer) {
+        const difficulty = this.gameSettings.botDifficulties[player] || 'medium';
+        switch (difficulty) {
+            case 'easy': return 500;   // Quick decisions
+            case 'medium': return 1000; // Normal thinking
+            case 'hard': return 1500;   // Longer strategic thinking
+            default: return 1000;
+        }
+    }
+    
+    shouldAIMakeOptimalDecision(player = this.currentPlayer) {
+        const difficulty = this.gameSettings.botDifficulties[player] || 'medium';
+        switch (difficulty) {
+            case 'easy': return Math.random() > 0.4;  // 60% optimal decisions
+            case 'medium': return Math.random() > 0.2; // 80% optimal decisions
+            case 'hard': return Math.random() > 0.05;  // 95% optimal decisions
+            default: return Math.random() > 0.2;
+        }
+    }
+    
+    getAIAggressiveness(player = this.currentPlayer) {
+        const difficulty = this.gameSettings.botDifficulties[player] || 'medium';
+        switch (difficulty) {
+            case 'easy': return 0.3;   // Less aggressive
+            case 'medium': return 0.6; // Moderately aggressive
+            case 'hard': return 0.9;   // Very aggressive
+            default: return 0.6;
+        }
+    }
+    
+    getAIPreferredUnitType(affordableUnits, unitTypes, player = this.currentPlayer) {
+        const aggressiveness = this.getAIAggressiveness(player);
+        const currentMoney = this.playerMoney[player];
+        const difficulty = this.gameSettings.botDifficulties[player] || 'medium';
+        
+        // Easy AI prefers cheaper units, Hard AI optimizes unit composition
+        switch (difficulty) {
+            case 'easy':
+                // Mostly build infantry, occasionally other units
+                if (Math.random() > 0.7 && affordableUnits.includes('tank')) {
+                    return 'tank';
+                }
+                return affordableUnits.includes('infantry') ? 'infantry' : affordableUnits[0];
+                
+            case 'medium':
+                // Balanced approach - mix of infantry and stronger units
+                if (currentMoney >= unitTypes.tank?.cost && Math.random() > 0.4) {
+                    return affordableUnits.includes('tank') ? 'tank' : 'infantry';
+                }
+                return affordableUnits.includes('infantry') ? 'infantry' : affordableUnits[0];
+                
+            case 'hard':
+                // Strategic unit selection - prioritize based on game state
+                const playerUnits = this.units.filter(u => u.player === this.currentPlayer);
+                const enemyUnits = this.units.filter(u => u.player !== this.currentPlayer);
+                
+                // If enemy has many units, prioritize combat units
+                if (enemyUnits.length > playerUnits.length && affordableUnits.includes('tank')) {
+                    return 'tank';
+                }
+                
+                // If we have few capture units, build infantry
+                const infantryCount = playerUnits.filter(u => u.type === 'infantry').length;
+                if (infantryCount < 2 && affordableUnits.includes('infantry')) {
+                    return 'infantry';
+                }
+                
+                // Otherwise build strongest affordable unit
+                const preferredOrder = ['tank', 'artillery', 'infantry', 'transport'];
+                for (const type of preferredOrder) {
+                    if (affordableUnits.includes(type)) {
+                        return type;
+                    }
+                }
+                break;
+                
+            default:
+                return affordableUnits.includes('infantry') ? 'infantry' : affordableUnits[0];
+        }
+        
+        return affordableUnits[0] || 'infantry';
     }
 
     performAIActions() {
@@ -1153,12 +1561,19 @@ class StrategyGame {
             unit.player === aiPlayer && !unit.hasActed && !unit.hasMoved
         );
 
-        // Create a queue of AI actions
+        // Create a queue of AI actions and track planned destinations
         this.aiActionQueue = [];
+        this.aiPlannedDestinations = new Set();
         
-        // Prioritize actions: attack enemies, capture buildings, move strategically
+        // Prioritize actions based on difficulty: attack enemies, capture buildings, move strategically
         for (const unit of availableUnits) {
             if (this.currentActions <= 0) break;
+            
+            // Apply difficulty-based decision making
+            if (!this.shouldAIMakeOptimalDecision(this.currentPlayer)) {
+                // On easier difficulties, occasionally skip optimal actions
+                if (Math.random() < 0.3) continue;
+            }
             
             // Try to attack nearby enemies
             const attackAction = this.aiPlanAttack(unit);
@@ -1318,6 +1733,17 @@ class StrategyGame {
         
         const moveTarget = this.aiCalculateMoveTowards(unit, targetX, targetY);
         if (moveTarget) {
+            // Check if another unit has already planned to move to this destination
+            const destinationKey = `${moveTarget.x},${moveTarget.y}`;
+            if (this.aiPlannedDestinations && this.aiPlannedDestinations.has(destinationKey)) {
+                return null; // Skip this move to avoid collision
+            }
+            
+            // Record this destination as planned
+            if (this.aiPlannedDestinations) {
+                this.aiPlannedDestinations.add(destinationKey);
+            }
+            
             return {
                 type: 'move',
                 unit: unit,
@@ -1344,6 +1770,18 @@ class StrategyGame {
         let bestDistance = Infinity;
         
         for (const [x, y] of moveablePositions) {
+            // Double-check that the target tile is not occupied by a friendly unit
+            const targetCell = this.gameBoard[y][x];
+            if (targetCell.unit && targetCell.unit.player === unit.player) {
+                continue; // Skip tiles occupied by friendly units
+            }
+            
+            // Check if another unit has already planned to move to this destination
+            const destinationKey = `${x},${y}`;
+            if (this.aiPlannedDestinations && this.aiPlannedDestinations.has(destinationKey)) {
+                continue; // Skip tiles already targeted by other units
+            }
+            
             const distance = Math.abs(x - targetX) + Math.abs(y - targetY);
             if (distance < bestDistance) {
                 bestDistance = distance;
@@ -1379,12 +1817,8 @@ class StrategyGame {
         for (const pos of buildablePositions) {
             if (this.currentActions <= 0 || affordableUnits.length === 0) break;
             
-            // Prioritize infantry for capture, tanks for combat
-            let unitType = 'infantry';
-            if (this.playerMoney[this.currentPlayer] >= unitTypes.tank.cost && 
-                this.currentActions >= unitTypes.tank.actionCost) {
-                unitType = Math.random() > 0.6 ? 'tank' : 'infantry';
-            }
+            // Choose unit type based on difficulty and strategy
+            let unitType = this.getAIPreferredUnitType(affordableUnits, unitTypes, this.currentPlayer);
             
             if (affordableUnits.includes(unitType)) {
                 buildActions.push({
@@ -1479,6 +1913,12 @@ class StrategyGame {
         let bestDistance = Infinity;
         
         for (const [x, y] of moveablePositions) {
+            // Double-check that the target tile is not occupied by a friendly unit
+            const targetCell = this.gameBoard[y][x];
+            if (targetCell.unit && targetCell.unit.player === unit.player) {
+                continue; // Skip tiles occupied by friendly units
+            }
+            
             const distance = Math.abs(x - targetX) + Math.abs(y - targetY);
             if (distance < bestDistance) {
                 bestDistance = distance;
@@ -1487,9 +1927,13 @@ class StrategyGame {
         }
         
         if (bestMove) {
-            this.selectedUnit = unit;
-            this.moveUnit(unit, bestMove.x, bestMove.y);
-            this.selectedUnit = null;
+            // Final safety check before moving
+            const targetCell = this.gameBoard[bestMove.y][bestMove.x];
+            if (!targetCell.unit || targetCell.unit.player !== unit.player) {
+                this.selectedUnit = unit;
+                this.moveUnit(unit, bestMove.x, bestMove.y);
+                this.selectedUnit = null;
+            }
         }
     }
 
@@ -1517,12 +1961,8 @@ class StrategyGame {
         for (const pos of buildablePositions) {
             if (this.currentActions <= 0 || affordableUnits.length === 0) break;
             
-            // Prioritize infantry for capture, tanks for combat
-            let unitType = 'infantry';
-            if (this.playerMoney[this.currentPlayer] >= unitTypes.tank.cost && 
-                this.currentActions >= unitTypes.tank.actionCost) {
-                unitType = Math.random() > 0.6 ? 'tank' : 'infantry';
-            }
+            // Choose unit type based on difficulty and strategy
+            let unitType = this.getAIPreferredUnitType(affordableUnits, unitTypes, this.currentPlayer);
             
             if (affordableUnits.includes(unitType)) {
                 this.selectedBuildingTile = pos;
@@ -1676,6 +2116,9 @@ class StrategyGame {
             captureBtn.style.display = 'none';
         }
         
+        // Handle special action buttons based on unit type
+        this.updateSpecialActionButtons(hasSelectedUnit);
+        
         endTurnBtn.disabled = this.gameState !== 'playing';
         
         // Update building buttons if they exist
@@ -1700,6 +2143,247 @@ class StrategyGame {
             const artilleryActionCost = this.getUnitTypes().artillery.actionCost;
             buildArtilleryBtn.disabled = !hasSelectedBuilding || this.playerMoney[this.currentPlayer] < artilleryCost || this.currentActions < artilleryActionCost;
         }
+        
+        // Update building buttons
+        this.updateBuildingButtons(hasSelectedBuilding);
+    }
+
+    updateSpecialActionButtons(hasSelectedUnit) {
+        // Handle submarine submerge/surface button
+        const submergeBtn = document.getElementById('submergeBtn');
+        if (submergeBtn) {
+            if (hasSelectedUnit && this.selectedUnit.canSubmerge) {
+                submergeBtn.style.display = 'block';
+                submergeBtn.disabled = this.currentActions < 1;
+                submergeBtn.textContent = this.selectedUnit.isSubmerged ? 'Surface' : '🌊 Submerge';
+            } else {
+                submergeBtn.style.display = 'none';
+            }
+        }
+
+        // Handle transport load/unload buttons
+        const loadBtn = document.getElementById('loadBtn');
+        const unloadBtn = document.getElementById('unloadBtn');
+        
+        if (loadBtn && unloadBtn) {
+            if (hasSelectedUnit && this.selectedUnit.type === 'transport') {
+                const nearbyLandUnits = this.getNearbyLandUnits(this.selectedUnit);
+                const hasCargoSpace = this.selectedUnit.transportedUnits.length < this.selectedUnit.transportCapacity;
+                const hasCargo = this.selectedUnit.transportedUnits.length > 0;
+                const nearLand = this.isNearLand(this.selectedUnit.x, this.selectedUnit.y);
+
+                loadBtn.style.display = (nearbyLandUnits.length > 0 && hasCargoSpace) ? 'block' : 'none';
+                loadBtn.disabled = this.currentActions < 1;
+
+                unloadBtn.style.display = (hasCargo && nearLand) ? 'block' : 'none';
+                unloadBtn.disabled = this.currentActions < 1;
+            } else {
+                loadBtn.style.display = 'none';
+                unloadBtn.style.display = 'none';
+            }
+        }
+    }
+
+    updateBuildingButtons(hasSelectedBuilding) {
+        // Update ship building buttons for sea ports
+        const buildTransportBtn = document.getElementById('buildTransportBtn');
+        const buildBattleshipBtn = document.getElementById('buildBattleshipBtn');
+        const buildSubmarineBtn = document.getElementById('buildSubmarineBtn');
+        
+        const isSeaPort = hasSelectedBuilding && 
+                         this.gameBoard[this.selectedBuildingTile.y][this.selectedBuildingTile.x].terrain === 'seaport';
+        
+        // Show/hide appropriate building buttons based on building type
+        if (hasSelectedBuilding) {
+            if (isSeaPort) {
+                // Show ship building buttons for sea ports
+                if (buildTransportBtn) {
+                    buildTransportBtn.style.display = 'block';
+                    const cost = this.getUnitTypes().transport.cost;
+                    const actionCost = this.getUnitTypes().transport.actionCost;
+                    buildTransportBtn.disabled = this.playerMoney[this.currentPlayer] < cost || this.currentActions < actionCost;
+                }
+                if (buildBattleshipBtn) {
+                    buildBattleshipBtn.style.display = 'block';
+                    const cost = this.getUnitTypes().battleship.cost;
+                    const actionCost = this.getUnitTypes().battleship.actionCost;
+                    buildBattleshipBtn.disabled = this.playerMoney[this.currentPlayer] < cost || this.currentActions < actionCost;
+                }
+                if (buildSubmarineBtn) {
+                    buildSubmarineBtn.style.display = 'block';
+                    const cost = this.getUnitTypes().submarine.cost;
+                    const actionCost = this.getUnitTypes().submarine.actionCost;
+                    buildSubmarineBtn.disabled = this.playerMoney[this.currentPlayer] < cost || this.currentActions < actionCost;
+                }
+                
+                // Hide land unit buttons
+                const buildInfantryBtn = document.getElementById('buildInfantryBtn');
+                const buildTankBtn = document.getElementById('buildTankBtn');
+                const buildArtilleryBtn = document.getElementById('buildArtilleryBtn');
+                if (buildInfantryBtn) buildInfantryBtn.style.display = 'none';
+                if (buildTankBtn) buildTankBtn.style.display = 'none';
+                if (buildArtilleryBtn) buildArtilleryBtn.style.display = 'none';
+            } else {
+                // Hide ship building buttons
+                if (buildTransportBtn) buildTransportBtn.style.display = 'none';
+                if (buildBattleshipBtn) buildBattleshipBtn.style.display = 'none';
+                if (buildSubmarineBtn) buildSubmarineBtn.style.display = 'none';
+            }
+        } else {
+            // Hide all ship building buttons when no building selected
+            if (buildTransportBtn) buildTransportBtn.style.display = 'none';
+            if (buildBattleshipBtn) buildBattleshipBtn.style.display = 'none';
+            if (buildSubmarineBtn) buildSubmarineBtn.style.display = 'none';
+        }
+    }
+
+    // Submarine submerge/surface functionality
+    toggleSubmerge() {
+        if (!this.selectedUnit || !this.selectedUnit.canSubmerge || this.currentActions < 1) {
+            return;
+        }
+
+        this.selectedUnit.isSubmerged = !this.selectedUnit.isSubmerged;
+        this.currentActions -= 1;
+        this.selectedUnit.hasMoved = true;
+
+        const action = this.selectedUnit.isSubmerged ? 'submerged' : 'surfaced';
+        this.logMessage(`Submarine ${action}! Actions remaining: ${this.currentActions}`);
+
+        this.selectedUnit = null;
+        this.clearHighlights();
+        this.renderBoard();
+        this.updateUI();
+    }
+
+    // Transport ship functionality
+    getNearbyLandUnits(transport) {
+        const nearbyUnits = [];
+        const directions = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+
+        for (const [dx, dy] of directions) {
+            const x = transport.x + dx;
+            const y = transport.y + dy;
+
+            if (this.isValidPosition(x, y)) {
+                const cell = this.gameBoard[y][x];
+                if (cell.unit && cell.unit.player === transport.player && 
+                    cell.unit.terrain === 'land') {
+                    nearbyUnits.push(cell.unit);
+                }
+            }
+        }
+
+        return nearbyUnits;
+    }
+
+    isNearLand(x, y) {
+        const directions = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+
+        for (const [dx, dy] of directions) {
+            const newX = x + dx;
+            const newY = y + dy;
+
+            if (this.isValidPosition(newX, newY)) {
+                const terrain = this.gameBoard[newY][newX].terrain;
+                if (terrain !== 'water' && terrain !== 'seaport') {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    loadUnit() {
+        if (!this.selectedUnit || this.selectedUnit.type !== 'transport' || this.currentActions < 1) {
+            return;
+        }
+
+        const transport = this.selectedUnit;
+        const nearbyUnits = this.getNearbyLandUnits(transport);
+
+        if (nearbyUnits.length === 0) {
+            this.logMessage("No nearby land units to load!");
+            return;
+        }
+
+        // For now, load the first available unit that fits
+        for (const unit of nearbyUnits) {
+            const unitTypes = this.getUnitTypes();
+            const transportSize = unitTypes[unit.type].transportSize || 1;
+            const currentLoad = transport.transportedUnits.reduce((total, u) => {
+                const uTypes = this.getUnitTypes();
+                return total + (uTypes[u.type].transportSize || 1);
+            }, 0);
+
+            if (currentLoad + transportSize <= transport.transportCapacity) {
+                // Load the unit
+                transport.transportedUnits.push(unit);
+                this.units = this.units.filter(u => u.id !== unit.id);
+                this.gameBoard[unit.y][unit.x].unit = null;
+
+                this.currentActions -= 1;
+                this.logMessage(`${unit.type} loaded onto transport! Actions remaining: ${this.currentActions}`);
+
+                this.renderBoard();
+                this.updateUI();
+                return;
+            }
+        }
+
+        this.logMessage("Transport is full or nearby units are too large!");
+    }
+
+    unloadUnit() {
+        if (!this.selectedUnit || this.selectedUnit.type !== 'transport' || 
+            this.selectedUnit.transportedUnits.length === 0 || this.currentActions < 1) {
+            return;
+        }
+
+        const transport = this.selectedUnit;
+        
+        if (!this.isNearLand(transport.x, transport.y)) {
+            this.logMessage("Must be adjacent to land to unload units!");
+            return;
+        }
+
+        // Find an empty adjacent land tile
+        const directions = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+        let unloadPosition = null;
+
+        for (const [dx, dy] of directions) {
+            const x = transport.x + dx;
+            const y = transport.y + dy;
+
+            if (this.isValidPosition(x, y)) {
+                const cell = this.gameBoard[y][x];
+                if (!cell.unit && cell.terrain !== 'water' && cell.terrain !== 'seaport') {
+                    unloadPosition = { x, y };
+                    break;
+                }
+            }
+        }
+
+        if (!unloadPosition) {
+            this.logMessage("No empty adjacent land tiles to unload!");
+            return;
+        }
+
+        // Unload the first unit
+        const unitToUnload = transport.transportedUnits.shift();
+        unitToUnload.x = unloadPosition.x;
+        unitToUnload.y = unloadPosition.y;
+        unitToUnload.hasMoved = true; // Unit can't move again this turn
+
+        this.units.push(unitToUnload);
+        this.gameBoard[unloadPosition.y][unloadPosition.x].unit = unitToUnload;
+
+        this.currentActions -= 1;
+        this.logMessage(`${unitToUnload.type} unloaded from transport! Actions remaining: ${this.currentActions}`);
+
+        this.renderBoard();
+        this.updateUI();
     }
 
     waitUnit() {
@@ -1787,8 +2471,9 @@ class StrategyGame {
         this.renderBoard();
         this.updateUI();
         
-        // Hide mode selection panel
+        // Hide mode selection panel and context menus
         document.getElementById('modeSelection').style.display = 'none';
+        this.hideAllContextMenus();
         this.updateModeIndicators();
         
         this.logMessage("Selection cancelled.");
@@ -1813,10 +2498,86 @@ class StrategyGame {
         document.getElementById('endTurnBtn').addEventListener('click', () => this.endTurn());
         document.getElementById('captureBtn').addEventListener('click', () => this.captureBuilding());
         
+        // Special action buttons
+        document.getElementById('submergeBtn').addEventListener('click', () => this.toggleSubmerge());
+        document.getElementById('loadBtn').addEventListener('click', () => this.loadUnit());
+        document.getElementById('unloadBtn').addEventListener('click', () => this.unloadUnit());
+        
+        // Context menu event listeners
+        document.getElementById('closeContextMenu').addEventListener('click', () => this.hideUnitContextMenu());
+        document.getElementById('contextMoveBtn').addEventListener('click', () => {
+            this.setActionMode('move');
+            this.updateContextMenuButtons(this.selectedUnit);
+            this.logMessage("Move mode selected - click on highlighted tiles to move");
+            this.hideUnitContextMenu();
+        });
+        document.getElementById('contextAttackBtn').addEventListener('click', () => {
+            this.setActionMode('attack');
+            this.updateContextMenuButtons(this.selectedUnit);
+            this.logMessage("Attack mode selected - click on highlighted tiles to attack");
+            this.hideUnitContextMenu();
+        });
+        document.getElementById('contextCaptureBtn').addEventListener('click', () => {
+            this.captureBuilding();
+            this.hideUnitContextMenu();
+        });
+        document.getElementById('contextSubmergeBtn').addEventListener('click', () => {
+            this.toggleSubmerge();
+        });
+        document.getElementById('contextLoadBtn').addEventListener('click', () => {
+            this.loadUnit();
+        });
+        document.getElementById('contextUnloadBtn').addEventListener('click', () => {
+            this.unloadUnit();
+        });
+        document.getElementById('contextWaitBtn').addEventListener('click', () => {
+            this.waitUnit();
+        });
+        document.getElementById('contextCancelBtn').addEventListener('click', () => {
+            this.cancelSelection();
+        });
+        
+        // Close context menu when clicking elsewhere
+        document.addEventListener('click', (e) => {
+            const unitContextMenu = document.getElementById('unitContextMenu');
+            const buildingContextMenu = document.getElementById('buildingContextMenu');
+            if (!unitContextMenu.contains(e.target) && !buildingContextMenu.contains(e.target) && !e.target.closest('.tile')) {
+                this.hideAllContextMenus();
+            }
+        });
+
+        // Building context menu event listeners
+        document.getElementById('closeBuildingContextMenu').addEventListener('click', () => this.hideBuildingContextMenu());
+        document.getElementById('contextBuildInfantryBtn').addEventListener('click', () => {
+            this.buildUnit('infantry');
+        });
+        document.getElementById('contextBuildTankBtn').addEventListener('click', () => {
+            this.buildUnit('tank');
+        });
+        document.getElementById('contextBuildArtilleryBtn').addEventListener('click', () => {
+            this.buildUnit('artillery');
+        });
+        document.getElementById('contextBuildTransportBtn').addEventListener('click', () => {
+            this.buildUnit('transport');
+        });
+        document.getElementById('contextBuildBattleshipBtn').addEventListener('click', () => {
+            this.buildUnit('battleship');
+        });
+        document.getElementById('contextBuildSubmarineBtn').addEventListener('click', () => {
+            this.buildUnit('submarine');
+        });
+        document.getElementById('contextCancelBuildingBtn').addEventListener('click', () => {
+            this.hideBuildingContextMenu();
+            this.cancelSelection();
+        });
+        
         // Building buttons
         const buildInfantryBtn = document.getElementById('buildInfantryBtn');
         const buildTankBtn = document.getElementById('buildTankBtn');
         const buildArtilleryBtn = document.getElementById('buildArtilleryBtn');
+        const buildTransportBtn = document.getElementById('buildTransportBtn');
+        const buildBattleshipBtn = document.getElementById('buildBattleshipBtn');
+        const buildSubmarineBtn = document.getElementById('buildSubmarineBtn');
         
         if (buildInfantryBtn) {
             buildInfantryBtn.addEventListener('click', () => this.buildUnit('infantry'));
@@ -1826,6 +2587,15 @@ class StrategyGame {
         }
         if (buildArtilleryBtn) {
             buildArtilleryBtn.addEventListener('click', () => this.buildUnit('artillery'));
+        }
+        if (buildTransportBtn) {
+            buildTransportBtn.addEventListener('click', () => this.buildUnit('transport'));
+        }
+        if (buildBattleshipBtn) {
+            buildBattleshipBtn.addEventListener('click', () => this.buildUnit('battleship'));
+        }
+        if (buildSubmarineBtn) {
+            buildSubmarineBtn.addEventListener('click', () => this.buildUnit('submarine'));
         }
         
         // Game controls
@@ -1847,6 +2617,261 @@ class StrategyGame {
                 e.target.classList.add('hidden');
             }
         });
+    }
+
+    // Context Menu Functions
+    showUnitContextMenu(unit) {
+        // Close any other open menus first
+        this.hideBuildingContextMenu();
+        
+        const contextMenu = document.getElementById('unitContextMenu');
+        const contextUnitType = document.getElementById('contextUnitType');
+        
+        // Update header with unit info
+        contextUnitType.textContent = `${unit.type} Actions`;
+        
+        // Position the context menu near the selected unit
+        const tile = document.querySelector(`[data-x="${unit.x}"][data-y="${unit.y}"]`);
+        if (tile) {
+            const rect = tile.getBoundingClientRect();
+            const menuWidth = 220; // Approximate menu width
+            const menuHeight = 300; // Approximate menu height
+            
+            let left = rect.right + 10;
+            let top = rect.top;
+            
+            // Adjust position if menu would go off screen
+            if (left + menuWidth > window.innerWidth) {
+                left = rect.left - menuWidth - 10;
+            }
+            if (top + menuHeight > window.innerHeight) {
+                top = window.innerHeight - menuHeight - 10;
+            }
+            
+            contextMenu.style.left = left + 'px';
+            contextMenu.style.top = top + 'px';
+        }
+        
+        // Update context menu buttons availability
+        this.updateContextMenuButtons(unit);
+        
+        // Update tile highlighting to show movement/attack options
+        this.updateTileHighlighting();
+        
+        // Show the context menu
+        contextMenu.classList.remove('hidden');
+    }
+
+    hideUnitContextMenu() {
+        const contextMenu = document.getElementById('unitContextMenu');
+        contextMenu.classList.add('hidden');
+    }
+
+    hideAllContextMenus() {
+        this.hideUnitContextMenu();
+        this.hideBuildingContextMenu();
+    }
+
+    updateContextMenuButtons(unit) {
+        // Basic movement buttons - always available if unit hasn't moved
+        const canAct = !unit.hasMoved && this.currentActions > 0;
+        
+        const contextMoveBtn = document.getElementById('contextMoveBtn');
+        const contextAttackBtn = document.getElementById('contextAttackBtn');
+        
+        contextMoveBtn.disabled = !canAct;
+        contextAttackBtn.disabled = !canAct;
+        
+        // Update active states based on current action mode
+        contextMoveBtn.classList.toggle('active', this.currentActionMode === 'move');
+        contextAttackBtn.classList.toggle('active', this.currentActionMode === 'attack');
+        
+        // Update button text to show current state
+        if (this.currentActionMode === 'move') {
+            contextMoveBtn.querySelector('.context-text').textContent = 'Move (Active)';
+        } else {
+            contextMoveBtn.querySelector('.context-text').textContent = 'Move';
+        }
+        
+        if (this.currentActionMode === 'attack') {
+            contextAttackBtn.querySelector('.context-text').textContent = 'Attack (Active)';
+        } else {
+            contextAttackBtn.querySelector('.context-text').textContent = 'Attack';
+        }
+        
+        // Special action buttons
+        const contextCaptureBtn = document.getElementById('contextCaptureBtn');
+        const contextSubmergeBtn = document.getElementById('contextSubmergeBtn');
+        const contextLoadBtn = document.getElementById('contextLoadBtn');
+        const contextUnloadBtn = document.getElementById('contextUnloadBtn');
+        
+        // Check if unit is on a capturable building
+        const cell = this.gameBoard[unit.y][unit.x];
+        const canCapture = canAct && (cell.terrain === 'city' || cell.terrain === 'hq' || cell.terrain === 'seaport') && 
+                          (!cell.owner || cell.owner !== unit.player);
+        
+        if (canCapture) {
+            contextCaptureBtn.style.display = 'block';
+            contextCaptureBtn.disabled = false;
+        } else {
+            contextCaptureBtn.style.display = 'none';
+        }
+        
+        // Submarine submerge
+        if (unit.canSubmerge) {
+            contextSubmergeBtn.style.display = 'block';
+            contextSubmergeBtn.disabled = !canAct;
+            const submergeText = document.querySelector('#contextSubmergeBtn .context-text');
+            submergeText.textContent = unit.isSubmerged ? 'Surface' : 'Submerge';
+        } else {
+            contextSubmergeBtn.style.display = 'none';
+        }
+        
+        // Transport load/unload
+        if (unit.type === 'transport') {
+            const nearbyUnits = this.getNearbyLandUnits(unit);
+            const canLoad = canAct && nearbyUnits.length > 0 && 
+                           unit.transportedUnits.length < unit.transportCapacity;
+            
+            contextLoadBtn.style.display = 'block';
+            contextLoadBtn.disabled = !canLoad;
+            
+            const canUnload = canAct && unit.transportedUnits.length > 0 && 
+                             this.isNearLand(unit.x, unit.y);
+            
+            contextUnloadBtn.style.display = 'block';
+            contextUnloadBtn.disabled = !canUnload;
+        } else {
+            contextLoadBtn.style.display = 'none';
+            contextUnloadBtn.style.display = 'none';
+        }
+        
+        // Hide special section if no special actions available
+        const specialSection = document.getElementById('contextSpecialSection');
+        const hasSpecialActions = contextCaptureBtn.style.display !== 'none' || 
+                                 contextSubmergeBtn.style.display !== 'none' ||
+                                 contextLoadBtn.style.display !== 'none' ||
+                                 contextUnloadBtn.style.display !== 'none';
+        
+        specialSection.style.display = hasSpecialActions ? 'block' : 'none';
+        
+        // General buttons
+        document.getElementById('contextWaitBtn').disabled = !canAct;
+        document.getElementById('contextCancelBtn').disabled = false; // Always can cancel
+    }
+
+    // Building Context Menu Functions
+    showBuildingContextMenu(x, y) {
+        // Close any other open menus first
+        this.hideUnitContextMenu();
+        
+        const contextMenu = document.getElementById('buildingContextMenu');
+        const contextBuildingType = document.getElementById('contextBuildingType');
+        
+        const cell = this.gameBoard[y][x];
+        let buildingName = 'Building';
+        if (cell.terrain === 'city') buildingName = 'City';
+        else if (cell.terrain === 'hq') buildingName = 'Headquarters';
+        else if (cell.terrain === 'seaport') buildingName = 'Sea Port';
+        
+        // Update header with building info
+        contextBuildingType.textContent = `${buildingName} - Build Units`;
+        
+        // Position the context menu near the selected building
+        const tile = document.querySelector(`[data-x="${x}"][data-y="${y}"]`);
+        if (tile) {
+            const rect = tile.getBoundingClientRect();
+            const menuWidth = 220; // Approximate menu width
+            const menuHeight = 350; // Approximate menu height
+            
+            let left = rect.right + 10;
+            let top = rect.top;
+            
+            // Adjust position if menu would go off screen
+            if (left + menuWidth > window.innerWidth) {
+                left = rect.left - menuWidth - 10;
+            }
+            if (top + menuHeight > window.innerHeight) {
+                top = window.innerHeight - menuHeight - 10;
+            }
+            
+            contextMenu.style.left = left + 'px';
+            contextMenu.style.top = top + 'px';
+        }
+        
+        // Update context menu buttons availability
+        this.updateBuildingContextMenuButtons(x, y);
+        
+        // Show the context menu
+        contextMenu.classList.remove('hidden');
+    }
+
+    hideBuildingContextMenu() {
+        const contextMenu = document.getElementById('buildingContextMenu');
+        contextMenu.classList.add('hidden');
+    }
+
+    updateBuildingContextMenuButtons(x, y) {
+        const cell = this.gameBoard[y][x];
+        const unitTypes = this.getUnitTypes();
+        
+        // Land unit buttons
+        const contextBuildInfantryBtn = document.getElementById('contextBuildInfantryBtn');
+        const contextBuildTankBtn = document.getElementById('contextBuildTankBtn');
+        const contextBuildArtilleryBtn = document.getElementById('contextBuildArtilleryBtn');
+        
+        // Naval unit buttons
+        const contextBuildTransportBtn = document.getElementById('contextBuildTransportBtn');
+        const contextBuildBattleshipBtn = document.getElementById('contextBuildBattleshipBtn');
+        const contextBuildSubmarineBtn = document.getElementById('contextBuildSubmarineBtn');
+        
+        // Sections
+        const landUnitsSection = document.getElementById('contextLandUnitsSection');
+        const navalUnitsSection = document.getElementById('contextNavalUnitsSection');
+        
+        if (cell.terrain === 'seaport') {
+            // Sea port - show naval units, hide land units
+            landUnitsSection.style.display = 'none';
+            navalUnitsSection.style.display = 'block';
+            
+            // Update naval unit buttons
+            this.updateBuildingButton(contextBuildTransportBtn, 'transport', unitTypes);
+            this.updateBuildingButton(contextBuildBattleshipBtn, 'battleship', unitTypes);
+            this.updateBuildingButton(contextBuildSubmarineBtn, 'submarine', unitTypes);
+        } else {
+            // City/HQ - show land units, hide naval units
+            landUnitsSection.style.display = 'block';
+            navalUnitsSection.style.display = 'none';
+            
+            // Update land unit buttons
+            this.updateBuildingButton(contextBuildInfantryBtn, 'infantry', unitTypes);
+            this.updateBuildingButton(contextBuildTankBtn, 'tank', unitTypes);
+            this.updateBuildingButton(contextBuildArtilleryBtn, 'artillery', unitTypes);
+        }
+    }
+
+    updateBuildingButton(button, unitType, unitTypes) {
+        const unitTemplate = unitTypes[unitType];
+        const cost = unitTemplate.cost;
+        const actionCost = unitTemplate.actionCost;
+        
+        // Check affordability
+        const canAfford = this.playerMoney[this.currentPlayer] >= cost && this.currentActions >= actionCost;
+        
+        button.disabled = !canAfford;
+        
+        // Update cost display
+        const costElement = button.querySelector('.context-cost');
+        if (costElement) {
+            costElement.textContent = cost;
+            if (!canAfford) {
+                costElement.style.color = '#e74c3c';
+                costElement.style.background = 'rgba(231, 76, 60, 0.2)';
+            } else {
+                costElement.style.color = '#f1c40f';
+                costElement.style.background = 'rgba(241, 196, 15, 0.2)';
+            }
+        }
     }
 }
 
@@ -1927,12 +2952,66 @@ class MenuSystem {
         // Quick match game mode toggle
         document.getElementById('quickGameMode').addEventListener('change', (e) => {
             const playerCountGroup = document.querySelector('#quickMatchPage .setting-group:nth-child(2)');
+            const botDifficultyGroup = document.getElementById('quickBotDifficultyGroup');
+            
             if (e.target.value === 'singleplayer') {
                 playerCountGroup.style.display = 'none';
+                botDifficultyGroup.style.display = 'block';
+                this.updateBotDifficultySelectors('quick');
             } else {
                 playerCountGroup.style.display = 'block';
+                botDifficultyGroup.style.display = 'none';
             }
         });
+
+        // Custom rules game mode toggle
+        document.getElementById('gameMode').addEventListener('change', (e) => {
+            const botDifficultyGroup = document.getElementById('botDifficultyGroup');
+            
+            if (e.target.value === 'singleplayer') {
+                botDifficultyGroup.style.display = 'block';
+                this.updateBotDifficultySelectors('custom');
+            } else {
+                botDifficultyGroup.style.display = 'none';
+            }
+        });
+
+        // Player count change listeners
+        document.getElementById('playerCount').addEventListener('change', () => {
+            const quickGameMode = document.getElementById('quickGameMode').value;
+            if (quickGameMode === 'singleplayer') {
+                this.updateBotDifficultySelectors('quick');
+            }
+        });
+
+        document.getElementById('customPlayerCount').addEventListener('change', () => {
+            const gameMode = document.getElementById('gameMode').value;
+            if (gameMode === 'singleplayer') {
+                this.updateBotDifficultySelectors('custom');
+            }
+        });
+    }
+
+    updateBotDifficultySelectors(mode) {
+        const isQuick = mode === 'quick';
+        const playerCountId = isQuick ? 'playerCount' : 'customPlayerCount';
+        const playerCount = parseInt(document.getElementById(playerCountId).value);
+        
+        // In singleplayer mode, all players except player 1 are bots
+        const botCount = playerCount - 1;
+        
+        for (let i = 2; i <= 4; i++) {
+            const selectorId = isQuick ? `quickBot${i}Difficulty` : `bot${i}Difficulty`;
+            const selector = document.getElementById(selectorId);
+            
+            if (selector) {
+                if (i <= playerCount) {
+                    selector.style.display = 'block';
+                } else {
+                    selector.style.display = 'none';
+                }
+            }
+        }
 
         // Help modal close
         document.getElementById('closeHelpBtn').addEventListener('click', () => {
@@ -1951,9 +3030,22 @@ class MenuSystem {
         const quickGameMode = document.getElementById('quickGameMode').value;
         const playerCount = parseInt(document.getElementById('playerCount').value);
         
+        // Collect individual bot difficulties
+        const botDifficulties = {};
+        if (quickGameMode === 'singleplayer') {
+            const actualPlayerCount = 2; // Quick match with bot is always 2 players
+            for (let i = 2; i <= actualPlayerCount; i++) {
+                const difficultyElement = document.getElementById(`quickBotDifficulty${i}`);
+                if (difficultyElement) {
+                    botDifficulties[i] = difficultyElement.value;
+                }
+            }
+        }
+        
         const gameSettings = {
             gameMode: quickGameMode,
             players: quickGameMode === 'singleplayer' ? 2 : playerCount,
+            botDifficulties: Object.keys(botDifficulties).length > 0 ? botDifficulties : { 2: 'medium' },
             startingMoney: 2000,
             incomePerTurn: 500,
             actionsPerTurn: 5,
@@ -1977,9 +3069,21 @@ class MenuSystem {
         const turnLimitEnabled = document.getElementById('turnLimitEnabled').checked;
         const maxTurns = turnLimitEnabled ? parseInt(document.getElementById('maxTurns').value) : null;
 
+        // Collect individual bot difficulties
+        const botDifficulties = {};
+        if (gameMode === 'singleplayer') {
+            for (let i = 2; i <= playerCount; i++) {
+                const difficultyElement = document.getElementById(`botDifficulty${i}`);
+                if (difficultyElement) {
+                    botDifficulties[i] = difficultyElement.value;
+                }
+            }
+        }
+        
         const gameSettings = {
             gameMode: gameMode,
-            players: gameMode === 'singleplayer' ? 2 : playerCount,
+            players: gameMode === 'singleplayer' ? playerCount : playerCount,
+            botDifficulties: Object.keys(botDifficulties).length > 0 ? botDifficulties : { 2: 'medium' },
             startingMoney: startingMoney,
             incomePerTurn: incomePerTurn,
             actionsPerTurn: actionsPerTurn,

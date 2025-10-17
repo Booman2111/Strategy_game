@@ -216,6 +216,39 @@ body {
     color: #fff;
 }
 
+/* Bot Difficulty Styling */
+.bot-difficulty-setting {
+    margin-bottom: 10px;
+    padding: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+}
+
+.bot-difficulty-setting label {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 0.9em;
+    color: #bdc3c7;
+}
+
+.bot-difficulty-setting select {
+    width: 100%;
+    margin-bottom: 0;
+}
+
+/* Color coding for difficulty options */
+select[id*="Difficulty"] option[value="easy"] {
+    color: #2ecc71;
+}
+
+select[id*="Difficulty"] option[value="medium"] {
+    color: #f39c12;
+}
+
+select[id*="Difficulty"] option[value="hard"] {
+    color: #e74c3c;
+}
+
 .setting-group input:focus,
 .setting-group select:focus {
     outline: 2px solid #3498db;
@@ -491,6 +524,42 @@ body {
     font-size: 0.6rem;
     opacity: 0.7;
     pointer-events: none;
+}
+
+.terrain-seaport {
+    background: #4a90e2;
+    border: 2px solid #2171b5;
+    position: relative;
+}
+
+.terrain-seaport::before {
+    content: '⚓';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 0.8rem;
+    color: white;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
+}
+
+/* Ship unit styling */
+.unit.has-cargo::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    width: 8px;
+    height: 8px;
+    background: orange;
+    border-radius: 50%;
+    border: 1px solid white;
+}
+
+/* Submerged submarine styling */
+.unit.submerged {
+    opacity: 0.3;
+    border: 2px dashed #666;
 }
 
 /* Player Ownership Styles for Buildings */
@@ -947,6 +1016,153 @@ body {
 #gameControls button:hover {
     background: #2c3e50;
     transform: translateY(-2px);
+}
+
+/* Context Menu Styles */
+.context-menu {
+    position: absolute;
+    background: linear-gradient(135deg, #2c3e50, #34495e);
+    border: 2px solid #3498db;
+    border-radius: 12px;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6);
+    z-index: 1500;
+    min-width: 200px;
+    max-width: 250px;
+    backdrop-filter: blur(10px);
+    animation: contextMenuSlideIn 0.2s ease-out;
+}
+
+@keyframes contextMenuSlideIn {
+    from {
+        opacity: 0;
+        transform: scale(0.8) translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.context-menu.hidden {
+    display: none;
+}
+
+.context-menu-header {
+    background: linear-gradient(135deg, #3498db, #2980b9);
+    color: white;
+    padding: 12px 15px;
+    border-radius: 10px 10px 0 0;
+    font-weight: bold;
+    font-size: 0.9rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.context-close-btn {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 0;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s;
+}
+
+.context-close-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.context-menu-section {
+    padding: 8px;
+    border-bottom: 1px solid #34495e;
+}
+
+.context-menu-section:last-child {
+    border-bottom: none;
+    border-radius: 0 0 10px 10px;
+}
+
+.context-section-title {
+    color: #3498db;
+    font-size: 0.8rem;
+    font-weight: bold;
+    margin-bottom: 5px;
+    padding: 0 5px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.context-menu-item {
+    width: 100%;
+    background: none;
+    border: none;
+    color: #ecf0f1;
+    padding: 10px 12px;
+    margin: 2px 0;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+    text-align: left;
+}
+
+.context-menu-item:hover {
+    background: linear-gradient(135deg, #3498db, #2980b9);
+    color: white;
+    transform: translateX(3px);
+}
+
+.context-menu-item.active {
+    background: linear-gradient(135deg, #27ae60, #2ecc71);
+    color: white;
+    transform: translateX(3px);
+    border-left: 3px solid #f1c40f;
+}
+
+.context-menu-item.active:hover {
+    background: linear-gradient(135deg, #2ecc71, #58d68d);
+}
+
+.context-menu-item:disabled {
+    color: #7f8c8d;
+    cursor: not-allowed;
+    background: none;
+    transform: none;
+}
+
+.context-menu-item:disabled:hover {
+    background: none;
+    transform: none;
+}
+
+.context-icon {
+    font-size: 1rem;
+    width: 20px;
+    text-align: center;
+}
+
+.context-text {
+    flex: 1;
+}
+
+.context-cost {
+    font-size: 0.8rem;
+    color: #f1c40f;
+    font-weight: bold;
+    background: rgba(241, 196, 15, 0.2);
+    padding: 2px 6px;
+    border-radius: 3px;
+    margin-left: 5px;
 }
 
 /* Modal Styles */

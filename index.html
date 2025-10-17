@@ -51,6 +51,36 @@
                     </select>
                 </div>
                 
+                <div class="setting-group" id="quickBotDifficultyGroup" style="display: none;">
+                    <label>Bot Difficulties:</label>
+                    <div id="quickBotDifficultyContainer">
+                        <div class="bot-difficulty-setting" id="quickBot2Difficulty">
+                            <label for="quickBotDifficulty2">Player 2 (Bot):</label>
+                            <select id="quickBotDifficulty2">
+                                <option value="easy">Easy</option>
+                                <option value="medium" selected>Medium</option>
+                                <option value="hard">Hard</option>
+                            </select>
+                        </div>
+                        <div class="bot-difficulty-setting" id="quickBot3Difficulty" style="display: none;">
+                            <label for="quickBotDifficulty3">Player 3 (Bot):</label>
+                            <select id="quickBotDifficulty3">
+                                <option value="easy">Easy</option>
+                                <option value="medium" selected>Medium</option>
+                                <option value="hard">Hard</option>
+                            </select>
+                        </div>
+                        <div class="bot-difficulty-setting" id="quickBot4Difficulty" style="display: none;">
+                            <label for="quickBotDifficulty4">Player 4 (Bot):</label>
+                            <select id="quickBotDifficulty4">
+                                <option value="easy">Easy</option>
+                                <option value="medium" selected>Medium</option>
+                                <option value="hard">Hard</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
                 <div class="setting-group">
                     <label for="playerCount">Number of Players:</label>
                     <select id="playerCount">
@@ -96,6 +126,35 @@
                                 <option value="multiplayer" selected>Multiplayer</option>
                                 <option value="singleplayer">Single Player vs Bot</option>
                             </select>
+                        </div>
+                        <div class="setting-group" id="botDifficultyGroup" style="display: none;">
+                            <label>Bot Difficulties:</label>
+                            <div id="botDifficultyContainer">
+                                <div class="bot-difficulty-setting" id="bot2Difficulty">
+                                    <label for="botDifficulty2">Player 2 (Bot):</label>
+                                    <select id="botDifficulty2">
+                                        <option value="easy">Easy</option>
+                                        <option value="medium" selected>Medium</option>
+                                        <option value="hard">Hard</option>
+                                    </select>
+                                </div>
+                                <div class="bot-difficulty-setting" id="bot3Difficulty" style="display: none;">
+                                    <label for="botDifficulty3">Player 3 (Bot):</label>
+                                    <select id="botDifficulty3">
+                                        <option value="easy">Easy</option>
+                                        <option value="medium" selected>Medium</option>
+                                        <option value="hard">Hard</option>
+                                    </select>
+                                </div>
+                                <div class="bot-difficulty-setting" id="bot4Difficulty" style="display: none;">
+                                    <label for="botDifficulty4">Player 4 (Bot):</label>
+                                    <select id="botDifficulty4">
+                                        <option value="easy">Easy</option>
+                                        <option value="medium" selected>Medium</option>
+                                        <option value="hard">Hard</option>
+                                    </select>
+                                </div>
+                            </div>
                         </div>
                         <div class="setting-group">
                             <label for="customPlayerCount">Number of Players:</label>
@@ -148,6 +207,7 @@
                                 <option value="large">Large (16x10)</option>
                                 <option value="islands">Islands (12x8)</option>
                                 <option value="chokepoint">Chokepoint (12x8)</option>
+                                <option value="naval">Naval Warfare (12x8)</option>
                             </select>
                         </div>
                         <div class="setting-group">
@@ -225,6 +285,9 @@
                     <!-- Action Buttons -->
                     <div id="actionButtons">
                         <button id="captureBtn" class="action-btn" disabled style="display: none;">Capture</button>
+                        <button id="submergeBtn" class="action-btn" disabled style="display: none;">🌊 Submerge</button>
+                        <button id="loadBtn" class="action-btn" disabled style="display: none;">📦 Load Unit</button>
+                        <button id="unloadBtn" class="action-btn" disabled style="display: none;">📤 Unload Unit</button>
                         <button id="waitBtn" class="action-btn" disabled>Wait</button>
                         <button id="cancelBtn" class="action-btn" disabled>Cancel</button>
                     </div>
@@ -233,6 +296,9 @@
                     <button id="buildInfantryBtn" class="build-btn" disabled>Infantry (800)</button>
                     <button id="buildTankBtn" class="build-btn" disabled>Tank (2500)</button>
                     <button id="buildArtilleryBtn" class="build-btn" disabled>Artillery (2000)</button>
+                    <button id="buildTransportBtn" class="build-btn" disabled style="display: none;">Transport (3000)</button>
+                    <button id="buildBattleshipBtn" class="build-btn" disabled style="display: none;">Battleship (4500)</button>
+                    <button id="buildSubmarineBtn" class="build-btn" disabled style="display: none;">Submarine (3500)</button>
                 </div>
 
                 <!-- Legend Panel -->
@@ -258,14 +324,18 @@
                         </div>
                         <div class="legend-item">
                             <div class="legend-tile terrain-water"></div>
-                            <span>Water (Infantry Only)</span>
+                            <span>Water (Ships Only)</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-tile terrain-seaport"></div>
+                            <span>Sea Port (Build Ships)</span>
                         </div>
                     </div>
                     <div id="unitLegend">
-                        <h4>Units</h4>
+                        <h4>Land Units</h4>
                         <div class="legend-item">
                             <div class="legend-unit unit player1">I</div>
-                            <span>Infantry (Move: 3, Attack: 1)</span>
+                            <span>Infantry (Move: 3, Attack: 1, Can capture)</span>
                         </div>
                         <div class="legend-item">
                             <div class="legend-unit unit player1">T</div>
@@ -274,6 +344,20 @@
                         <div class="legend-item">
                             <div class="legend-unit unit player1">A</div>
                             <span>Artillery (Move: 1, Attack: 3)</span>
+                        </div>
+                        
+                        <h4>Naval Units</h4>
+                        <div class="legend-item">
+                            <div class="legend-unit unit player1" style="font-size: 0.6rem;">TS</div>
+                            <span>Transport (Move: 5, Carries 4 units)</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-unit unit player1" style="font-size: 0.6rem;">BS</div>
+                            <span>Battleship (Move: 3, Attack: 4)</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-unit unit player1" style="font-size: 0.5rem;">SUB</div>
+                            <span>Submarine (Move: 4, Can submerge)</span>
                         </div>
                     </div>
                 </div>
@@ -302,6 +386,112 @@
                 <button id="newGameButton">New Game</button>
                 <button id="helpButton">Help</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Unit Context Menu (Cascading Menu) -->
+    <div id="unitContextMenu" class="context-menu hidden">
+        <div class="context-menu-header">
+            <span id="contextUnitType">Unit Actions</span>
+            <button id="closeContextMenu" class="context-close-btn">×</button>
+        </div>
+        
+        <div class="context-menu-section">
+            <div class="context-section-title">Movement</div>
+            <button id="contextMoveBtn" class="context-menu-item">
+                <span class="context-icon">📍</span>
+                <span class="context-text">Move</span>
+            </button>
+            <button id="contextAttackBtn" class="context-menu-item">
+                <span class="context-icon">⚔️</span>
+                <span class="context-text">Attack</span>
+            </button>
+        </div>
+        
+        <div class="context-menu-section" id="contextSpecialSection">
+            <div class="context-section-title">Special Actions</div>
+            <button id="contextCaptureBtn" class="context-menu-item" style="display: none;">
+                <span class="context-icon">🏰</span>
+                <span class="context-text">Capture</span>
+            </button>
+            <button id="contextSubmergeBtn" class="context-menu-item" style="display: none;">
+                <span class="context-icon">🌊</span>
+                <span class="context-text">Submerge</span>
+            </button>
+            <button id="contextLoadBtn" class="context-menu-item" style="display: none;">
+                <span class="context-icon">📦</span>
+                <span class="context-text">Load Unit</span>
+            </button>
+            <button id="contextUnloadBtn" class="context-menu-item" style="display: none;">
+                <span class="context-icon">📤</span>
+                <span class="context-text">Unload Unit</span>
+            </button>
+        </div>
+        
+        <div class="context-menu-section">
+            <div class="context-section-title">General</div>
+            <button id="contextWaitBtn" class="context-menu-item">
+                <span class="context-icon">⏸️</span>
+                <span class="context-text">Wait</span>
+            </button>
+            <button id="contextCancelBtn" class="context-menu-item">
+                <span class="context-icon">❌</span>
+                <span class="context-text">Cancel</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Building Context Menu (Cascading Menu) -->
+    <div id="buildingContextMenu" class="context-menu hidden">
+        <div class="context-menu-header">
+            <span id="contextBuildingType">Build Units</span>
+            <button id="closeBuildingContextMenu" class="context-close-btn">×</button>
+        </div>
+        
+        <div class="context-menu-section" id="contextLandUnitsSection">
+            <div class="context-section-title">Land Units</div>
+            <button id="contextBuildInfantryBtn" class="context-menu-item">
+                <span class="context-icon">🚶</span>
+                <span class="context-text">Infantry</span>
+                <span class="context-cost">800</span>
+            </button>
+            <button id="contextBuildTankBtn" class="context-menu-item">
+                <span class="context-icon">🚗</span>
+                <span class="context-text">Tank</span>
+                <span class="context-cost">2500</span>
+            </button>
+            <button id="contextBuildArtilleryBtn" class="context-menu-item">
+                <span class="context-icon">💥</span>
+                <span class="context-text">Artillery</span>
+                <span class="context-cost">2000</span>
+            </button>
+        </div>
+        
+        <div class="context-menu-section" id="contextNavalUnitsSection" style="display: none;">
+            <div class="context-section-title">Naval Units</div>
+            <button id="contextBuildTransportBtn" class="context-menu-item">
+                <span class="context-icon">🚢</span>
+                <span class="context-text">Transport</span>
+                <span class="context-cost">3000</span>
+            </button>
+            <button id="contextBuildBattleshipBtn" class="context-menu-item">
+                <span class="context-icon">⚓</span>
+                <span class="context-text">Battleship</span>
+                <span class="context-cost">4500</span>
+            </button>
+            <button id="contextBuildSubmarineBtn" class="context-menu-item">
+                <span class="context-icon">🌊</span>
+                <span class="context-text">Submarine</span>
+                <span class="context-cost">3500</span>
+            </button>
+        </div>
+        
+        <div class="context-menu-section">
+            <div class="context-section-title">General</div>
+            <button id="contextCancelBuildingBtn" class="context-menu-item">
+                <span class="context-icon">❌</span>
+                <span class="context-text">Cancel</span>
+            </button>
         </div>
     </div>
 
