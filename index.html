@@ -90,13 +90,33 @@
                     </select>
                 </div>
                 
+                <div class="setting-group">
+                    <label for="quickMapPreset">Map:</label>
+                    <select id="quickMapPreset">
+                        <option value="default" selected>Default (12x8)</option>
+                        <option value="small">Small (8x6)</option>
+                        <option value="large">Large (16x10)</option>
+                        <option value="islands">Islands (12x8)</option>
+                        <option value="chokepoint">Chokepoint (12x8)</option>
+                        <option value="naval">Naval Warfare (12x8)</option>
+                    </select>
+                </div>
+                
+                <div class="setting-group">
+                    <label>
+                        <input type="checkbox" id="quickFogOfWar">
+                        Fog of War
+                    </label>
+                    <small>Units can only see within their vision range</small>
+                </div>
+                
                 <div class="game-preview">
                     <h3>Game Settings</h3>
                     <ul>
                         <li>Starting Money: 2,000</li>
                         <li>Income per Turn: 500</li>
                         <li>Actions per Turn: 5</li>
-                        <li>Map: Default (12x8)</li>
+                        <li id="quickMapPreview">Map: Default (12x8)</li>
                         <li>Victory: Capture Enemy HQ</li>
                         <li>Turn Limit: None</li>
                     </ul>
@@ -193,6 +213,13 @@
                         <div class="setting-group" id="turnLimitGroup" style="display: none;">
                             <label for="maxTurns">Maximum Turns:</label>
                             <input type="number" id="maxTurns" value="50" min="10" max="200" step="5">
+                        </div>
+                        <div class="setting-group">
+                            <label>
+                                <input type="checkbox" id="fogOfWar">
+                                Fog of War
+                            </label>
+                            <small>Units can only see within their vision range</small>
                         </div>
                     </div>
                     
@@ -465,6 +492,11 @@
                 <span class="context-text">Artillery</span>
                 <span class="context-cost">2000</span>
             </button>
+            <button id="contextBuildReconBtn" class="context-menu-item">
+                <span class="context-icon">🔍</span>
+                <span class="context-text">Recon</span>
+                <span class="context-cost">1200</span>
+            </button>
         </div>
         
         <div class="context-menu-section" id="contextNavalUnitsSection" style="display: none;">
@@ -483,6 +515,11 @@
                 <span class="context-icon">🌊</span>
                 <span class="context-text">Submarine</span>
                 <span class="context-cost">3500</span>
+            </button>
+            <button id="contextBuildPatrolBoatBtn" class="context-menu-item">
+                <span class="context-icon">🛥️</span>
+                <span class="context-text">Patrol Boat</span>
+                <span class="context-cost">1500</span>
             </button>
         </div>
         

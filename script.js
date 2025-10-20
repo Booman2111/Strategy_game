@@ -7,6 +7,7 @@ class StrategyGame {
             players: 2,
             gameMode: 'multiplayer',
             botDifficulties: { 2: 'medium' }, // difficulty per player number
+            fogOfWar: false,
             startingMoney: 2000,
             incomePerTurn: 500,
             actionsPerTurn: 5,
@@ -26,6 +27,7 @@ class StrategyGame {
         this.selectedUnit = null;
         this.gameBoard = [];
         this.units = [];
+        this.playerVision = {}; // Track what each player can see
         this.gameState = 'playing'; // 'playing', 'gameOver'
         this.gameMode = null; // 'move', 'attack', 'wait'
         this.currentActionMode = null; // 'move', 'attack' - for UI mode selection
@@ -43,10 +45,8 @@ class StrategyGame {
         this.incomePerTurn = this.gameSettings.incomePerTurn;
         this.selectedBuildingTile = null; // For building units
         
-        // Don't initialize game automatically - wait for page navigation
-        if (document.getElementById('gamePage').classList.contains('active')) {
-            this.initializeGame();
-        }
+        // Always initialize the game when created
+        this.initializeGame();
         this.setupEventListeners();
     }
 
@@ -65,6 +65,7 @@ class StrategyGame {
                 cost: 800,
                 canCapture: true,
                 actionCost: 1,
+                visionRange: 2,
                 transportSize: 1,
                 terrain: 'land'
             },
@@ -80,6 +81,7 @@ class StrategyGame {
                 cost: 2500,
                 canCapture: false,
                 actionCost: 1,
+                visionRange: 3,
                 transportSize: 2,
                 terrain: 'land'
             },
@@ -95,6 +97,7 @@ class StrategyGame {
                 cost: 2000,
                 canCapture: false,
                 actionCost: 1,
+                visionRange: 4,
                 transportSize: 2,
                 terrain: 'land'
             },
@@ -110,6 +113,7 @@ class StrategyGame {
                 cost: 3000,
                 canCapture: false,
                 actionCost: 2,
+                visionRange: 2,
                 transportCapacity: 4,
                 transportedUnits: [],
                 terrain: 'water'
@@ -126,6 +130,7 @@ class StrategyGame {
                 cost: 4500,
                 canCapture: false,
                 actionCost: 3,
+                visionRange: 4,
                 terrain: 'water'
             },
             submarine: {
@@ -140,11 +145,67 @@ class StrategyGame {
                 cost: 3500,
                 canCapture: false,
                 actionCost: 2,
+                visionRange: 3,
                 canSubmerge: true,
                 isSubmerged: false,
                 terrain: 'water'
+            },
+            recon: {
+                name: 'Recon',
+                symbol: 'R',
+                health: 100,
+                maxHealth: 100,
+                movement: 8,
+                attackRange: 1,
+                attackPower: 40,
+                defense: 35,
+                cost: 1200,
+                canCapture: false,
+                actionCost: 1,
+                visionRange: 5,
+                transportSize: 1,
+                terrain: 'land'
+            },
+            patrolBoat: {
+                name: 'Patrol Boat',
+                symbol: 'PB',
+                health: 100,
+                maxHealth: 100,
+                movement: 6,
+                attackRange: 1,
+                attackPower: 45,
+                defense: 40,
+                cost: 1500,
+                canCapture: false,
+                actionCost: 1,
+                visionRange: 6,
+                terrain: 'water'
             }
         };
+    }
+
+    getUnitStatsForMap(unitType) {
+        const baseStats = this.getUnitTypes()[unitType];
+        if (!baseStats) return null;
+        
+        // Clone the base stats
+        const adjustedStats = { ...baseStats };
+        
+        // Adjust movement for recon units based on map size
+        if ((unitType === 'recon' || unitType === 'patrolBoat') && this.mapWidth && this.mapHeight) {
+            const mapArea = this.mapWidth * this.mapHeight;
+            
+            if (mapArea <= 48) { // Small maps (8x6 = 48)
+                adjustedStats.movement = Math.max(4, Math.floor(baseStats.movement * 0.6));
+                adjustedStats.visionRange = Math.max(3, Math.floor(baseStats.visionRange * 0.8));
+            } else if (mapArea <= 96) { // Medium maps (12x8 = 96)
+                adjustedStats.movement = Math.max(5, Math.floor(baseStats.movement * 0.75));
+                adjustedStats.visionRange = Math.max(4, Math.floor(baseStats.visionRange * 0.9));
+            }
+            // Large maps keep full stats
+        }
+        
+        return adjustedStats;
     }
 
     // Terrain Types Configuration
@@ -193,9 +254,21 @@ class StrategyGame {
     }
 
     initializeGame() {
+        console.log("Initializing game...");
+        console.log("Map dimensions:", this.mapWidth, "x", this.mapHeight);
+        
         this.createMap();
+        console.log("Map created, board size:", this.gameBoard.length);
+        
         this.placeInitialUnits();
+        console.log("Initial units placed, unit count:", this.units.length);
+        
+        // Initialize vision for fog of war
+        this.updateAllPlayerVision();
+        
         this.renderBoard();
+        console.log("Board rendered");
+        
         this.updateUI();
         this.logMessage("Game started. Player 1's turn.");
     }
@@ -624,8 +697,15 @@ class StrategyGame {
             return false;
         }
 
-        const unitTypes = this.getUnitTypes();
-        const unitTemplate = unitTypes[type];
+        // Get map-adjusted stats
+        const adjustedStats = this.getUnitStatsForMap(type);
+        
+        if (!adjustedStats) {
+            console.error(`Failed to get stats for unit type: ${type}`);
+            return false;
+        }
+        
+        console.log(`Adding unit ${type} at (${x},${y}) for player ${player}`, adjustedStats);
         
         const unit = {
             id: `${player}-${type}-${x}-${y}-${Date.now()}`,
@@ -633,26 +713,27 @@ class StrategyGame {
             x: x,
             y: y,
             player: player,
-            health: unitTemplate.health,
-            maxHealth: unitTemplate.maxHealth,
-            movement: unitTemplate.movement,
-            attackRange: unitTemplate.attackRange,
-            attackPower: unitTemplate.attackPower,
-            defense: unitTemplate.defense,
-            canCapture: unitTemplate.canCapture,
+            health: adjustedStats.health,
+            maxHealth: adjustedStats.maxHealth,
+            movement: adjustedStats.movement,
+            attackRange: adjustedStats.attackRange,
+            attackPower: adjustedStats.attackPower,
+            defense: adjustedStats.defense,
+            canCapture: adjustedStats.canCapture,
             hasActed: false,
             hasMoved: false, // New: tracks if unit moved this turn
-            symbol: unitTemplate.symbol,
-            actionCost: unitTemplate.actionCost,
+            symbol: adjustedStats.symbol,
+            actionCost: adjustedStats.actionCost,
             captureProgress: 0, // Progress towards capturing current building (0-3)
             capturingBuildingPos: null, // Position of building being captured {x, y}
-            terrain: unitTemplate.terrain || 'land',
-            transportSize: unitTemplate.transportSize || 1,
+            terrain: adjustedStats.terrain || 'land',
+            transportSize: adjustedStats.transportSize || 1,
             // Ship-specific properties
-            transportCapacity: unitTemplate.transportCapacity || 0,
-            transportedUnits: unitTemplate.transportedUnits ? [...unitTemplate.transportedUnits] : [],
-            canSubmerge: unitTemplate.canSubmerge || false,
-            isSubmerged: unitTemplate.isSubmerged || false
+            transportCapacity: adjustedStats.transportCapacity || 0,
+            transportedUnits: adjustedStats.transportedUnits ? [...adjustedStats.transportedUnits] : [],
+            canSubmerge: adjustedStats.canSubmerge || false,
+            isSubmerged: adjustedStats.isSubmerged || false,
+            visionRange: adjustedStats.visionRange || 0 // Add vision range for fog of war
         };
 
         this.units.push(unit);
@@ -665,7 +746,18 @@ class StrategyGame {
     }
 
     renderBoard() {
+        // Skip rendering during AI silent mode (fog of war)
+        if (this.aiSilentMode && this.gameSettings.fogOfWar && this.currentPlayer !== 1) {
+            return;
+        }
+        
         const boardElement = document.getElementById('gameBoard');
+        console.log("Rendering board, element found:", !!boardElement);
+        
+        if (!boardElement) {
+            console.error("gameBoard element not found!");
+            return;
+        }
         
         // Store existing highlight classes before clearing
         const existingHighlights = new Map();
@@ -683,6 +775,11 @@ class StrategyGame {
         });
         
         boardElement.innerHTML = '';
+        
+        // Set dynamic grid dimensions
+        boardElement.style.gridTemplateColumns = `repeat(${this.mapWidth}, 1fr)`;
+        boardElement.style.gridTemplateRows = `repeat(${this.mapHeight}, 1fr)`;
+        console.log(`Set board grid to ${this.mapWidth}x${this.mapHeight}`);
 
         for (let y = 0; y < this.mapHeight; y++) {
             for (let x = 0; x < this.mapWidth; x++) {
@@ -702,8 +799,8 @@ class StrategyGame {
                     tile.classList.add(`owned-by-player${cell.owner}`);
                 }
                 
-                // Add unit if present
-                if (cell.unit) {
+                // Add unit if present and visible
+                if (cell.unit && this.canPlayerSee(this.currentPlayer, x, y)) {
                     const unitElement = document.createElement('div');
                     unitElement.className = `unit player${cell.unit.player}`;
                     unitElement.textContent = cell.unit.symbol;
@@ -775,6 +872,11 @@ class StrategyGame {
                     if (highlights.hasMovable) tile.classList.add('movable');
                     if (highlights.hasAttackable) tile.classList.add('attackable');
                     if (highlights.hasSelected) tile.classList.add('selected');
+                }
+                
+                // Add fog of war effect if tile is not visible
+                if (this.gameSettings.fogOfWar && !this.canPlayerSee(this.currentPlayer, x, y)) {
+                    tile.classList.add('fog-of-war');
                 }
                 
                 boardElement.appendChild(tile);
@@ -1109,6 +1211,9 @@ class StrategyGame {
         
         this.logMessage(`${unit.type} moved to (${newX}, ${newY}) - Actions remaining: ${this.currentActions}`);
         
+        // Update vision for fog of war
+        this.updateAllPlayerVision();
+        
         this.clearHighlights();
         this.selectedUnit = null;
         this.hideUnitContextMenu();
@@ -1279,6 +1384,9 @@ class StrategyGame {
             
             this.logMessage(`Built ${unitType} for ${cost} money and ${actionCost} actions! Money: ${this.playerMoney[this.currentPlayer]}, Actions: ${this.currentActions}`);
             
+            // Update vision for fog of war
+            this.updateAllPlayerVision();
+            
             this.selectedBuildingTile = null;
             this.clearHighlights();
             this.hideBuildingContextMenu();
@@ -1343,6 +1451,11 @@ class StrategyGame {
         
         // Switch players
         this.currentPlayer = this.currentPlayer === 1 ? 2 : 1;
+        
+        // Reset AI silent mode when switching to human player
+        if (this.currentPlayer === 1) {
+            this.aiSilentMode = false;
+        }
         
         // Reset actions for new player
         this.currentActions = this.maxActionsPerTurn;
@@ -1461,13 +1574,20 @@ class StrategyGame {
         
         this.logMessage("Bot is thinking...");
         
-        // Difficulty-based thinking time
-        const thinkingTime = this.getAIThinkingTime();
-        
-        // Add a delay to make AI actions visible
-        setTimeout(() => {
-            this.performAIActions();
-        }, thinkingTime);
+        // If fog of war is enabled, hide the bot's actions from human player
+        if (this.gameSettings.fogOfWar) {
+            this.logMessage("Bot is making moves... (hidden by fog of war)");
+            
+            // Perform AI actions immediately without showing them
+            setTimeout(() => {
+                this.performAIActions(true); // Pass true to indicate silent mode
+            }, this.getAIThinkingTime());
+        } else {
+            // Normal mode - show AI actions
+            setTimeout(() => {
+                this.performAIActions(false);
+            }, this.getAIThinkingTime());
+        }
     }
     
     getAIThinkingTime(player = this.currentPlayer) {
@@ -1538,7 +1658,7 @@ class StrategyGame {
                 }
                 
                 // Otherwise build strongest affordable unit
-                const preferredOrder = ['tank', 'artillery', 'infantry', 'transport'];
+                const preferredOrder = ['tank', 'artillery', 'recon', 'infantry', 'transport'];
                 for (const type of preferredOrder) {
                     if (affordableUnits.includes(type)) {
                         return type;
@@ -1553,8 +1673,71 @@ class StrategyGame {
         return affordableUnits[0] || 'infantry';
     }
 
-    performAIActions() {
+    getMapSizeFromPreset(preset) {
+        switch (preset) {
+            case 'small': return '8x6';
+            case 'large': return '16x10';
+            case 'default':
+            case 'islands':
+            case 'chokepoint':
+            case 'naval':
+            default: return '12x8';
+        }
+    }
+
+    // Vision and Fog of War System
+    calculatePlayerVision(player) {
+        if (!this.gameSettings.fogOfWar) return; // No fog of war, no need to calculate
+        
+        const visibleTiles = new Set();
+        
+        // Get all units for this player
+        const playerUnits = this.units.filter(unit => unit.player === player);
+        
+        for (const unit of playerUnits) {
+            const visionRange = unit.visionRange || 2; // Default vision range
+            
+            // Calculate vision around this unit
+            for (let dy = -visionRange; dy <= visionRange; dy++) {
+                for (let dx = -visionRange; dx <= visionRange; dx++) {
+                    const x = unit.x + dx;
+                    const y = unit.y + dy;
+                    
+                    // Check if tile is within map bounds
+                    if (x >= 0 && x < this.mapWidth && y >= 0 && y < this.mapHeight) {
+                        // Use Manhattan distance for vision range
+                        const distance = Math.abs(dx) + Math.abs(dy);
+                        if (distance <= visionRange) {
+                            visibleTiles.add(`${x},${y}`);
+                        }
+                    }
+                }
+            }
+        }
+        
+        this.playerVision[player] = visibleTiles;
+    }
+    
+    updateAllPlayerVision() {
+        if (!this.gameSettings.fogOfWar) return;
+        
+        for (let player = 1; player <= this.gameSettings.players; player++) {
+            this.calculatePlayerVision(player);
+        }
+    }
+    
+    canPlayerSee(player, x, y) {
+        if (!this.gameSettings.fogOfWar) return true; // No fog of war, can see everything
+        
+        const visionKey = `${x},${y}`;
+        return this.playerVision[player] && this.playerVision[player].has(visionKey);
+    }
+
+    performAIActions(silentMode = false) {
         const aiPlayer = this.currentPlayer;
+        
+        // Store original rendering state
+        this.aiSilentMode = silentMode;
         
         // Get all AI units that haven't acted
         const availableUnits = this.units.filter(unit => 
@@ -1606,16 +1789,38 @@ class StrategyGame {
 
     executeAIActionQueue() {
         if (!this.aiActionQueue || this.aiActionQueue.length === 0) {
+            // Update vision and render board after AI turn is complete
+            if (this.aiSilentMode && this.gameSettings.fogOfWar) {
+                this.updateAllPlayerVision();
+                this.renderBoard();
+                this.logMessage("Bot completed its turn.");
+            }
+            
             // End AI turn after all actions are complete
             setTimeout(() => {
                 this.endTurn();
-            }, 800);
+            }, this.aiSilentMode ? 100 : 800);
             return;
         }
 
         const action = this.aiActionQueue.shift();
-        this.logMessage(`Bot ${action.description}...`);
         
+        // Only show action descriptions in non-silent mode
+        if (!this.aiSilentMode) {
+            this.logMessage(`Bot ${action.description}...`);
+        }
+        
+        // In silent mode, execute immediately without visual feedback
+        if (this.aiSilentMode) {
+            action.execute();
+            // Continue immediately to next action
+            setTimeout(() => {
+                this.executeAIActionQueue();
+            }, 50);
+            return;
+        }
+        
+        // Normal mode - show visual feedback
         // Highlight the unit performing the action
         if (action.unit) {
             this.selectedUnit = action.unit;
@@ -2480,6 +2685,17 @@ class StrategyGame {
     }
 
     logMessage(message) {
+        // Suppress most log messages during AI silent mode (fog of war)
+        if (this.aiSilentMode && this.gameSettings.fogOfWar && this.currentPlayer !== 1) {
+            // Only allow certain important messages during AI silent mode
+            if (!message.includes("Bot is thinking") && 
+                !message.includes("Bot is making moves") && 
+                !message.includes("Bot completed its turn") &&
+                !message.includes("Turn")) {
+                return;
+            }
+        }
+        
         const logMessages = document.getElementById('logMessages');
         const messageElement = document.createElement('p');
         messageElement.textContent = message;
@@ -2557,6 +2773,9 @@ class StrategyGame {
         document.getElementById('contextBuildArtilleryBtn').addEventListener('click', () => {
             this.buildUnit('artillery');
         });
+        document.getElementById('contextBuildReconBtn').addEventListener('click', () => {
+            this.buildUnit('recon');
+        });
         document.getElementById('contextBuildTransportBtn').addEventListener('click', () => {
             this.buildUnit('transport');
         });
@@ -2565,6 +2784,9 @@ class StrategyGame {
         });
         document.getElementById('contextBuildSubmarineBtn').addEventListener('click', () => {
             this.buildUnit('submarine');
+        });
+        document.getElementById('contextBuildPatrolBoatBtn').addEventListener('click', () => {
+            this.buildUnit('patrolBoat');
         });
         document.getElementById('contextCancelBuildingBtn').addEventListener('click', () => {
             this.hideBuildingContextMenu();
@@ -2819,11 +3041,13 @@ class StrategyGame {
         const contextBuildInfantryBtn = document.getElementById('contextBuildInfantryBtn');
         const contextBuildTankBtn = document.getElementById('contextBuildTankBtn');
         const contextBuildArtilleryBtn = document.getElementById('contextBuildArtilleryBtn');
+        const contextBuildReconBtn = document.getElementById('contextBuildReconBtn');
         
         // Naval unit buttons
         const contextBuildTransportBtn = document.getElementById('contextBuildTransportBtn');
         const contextBuildBattleshipBtn = document.getElementById('contextBuildBattleshipBtn');
         const contextBuildSubmarineBtn = document.getElementById('contextBuildSubmarineBtn');
+        const contextBuildPatrolBoatBtn = document.getElementById('contextBuildPatrolBoatBtn');
         
         // Sections
         const landUnitsSection = document.getElementById('contextLandUnitsSection');
@@ -2838,6 +3062,7 @@ class StrategyGame {
             this.updateBuildingButton(contextBuildTransportBtn, 'transport', unitTypes);
             this.updateBuildingButton(contextBuildBattleshipBtn, 'battleship', unitTypes);
             this.updateBuildingButton(contextBuildSubmarineBtn, 'submarine', unitTypes);
+            this.updateBuildingButton(contextBuildPatrolBoatBtn, 'patrolBoat', unitTypes);
         } else {
             // City/HQ - show land units, hide naval units
             landUnitsSection.style.display = 'block';
@@ -2847,6 +3072,7 @@ class StrategyGame {
             this.updateBuildingButton(contextBuildInfantryBtn, 'infantry', unitTypes);
             this.updateBuildingButton(contextBuildTankBtn, 'tank', unitTypes);
             this.updateBuildingButton(contextBuildArtilleryBtn, 'artillery', unitTypes);
+            this.updateBuildingButton(contextBuildReconBtn, 'recon', unitTypes);
         }
     }
 
@@ -2878,10 +3104,29 @@ class StrategyGame {
 // Menu System and Navigation
 class MenuSystem {
     constructor() {
+        console.log("MenuSystem constructor called");
         this.currentPage = 'homePage';
         this.game = null;
+        
+        console.log("Setting up menu event listeners...");
         this.setupMenuEventListeners();
+        
+        console.log("Showing home page...");
         this.showPage('homePage');
+        
+        console.log("MenuSystem constructor completed");
+    }
+
+    getMapSizeFromPreset(preset) {
+        switch (preset) {
+            case 'small': return '8x6';
+            case 'large': return '16x10';
+            case 'default':
+            case 'islands':
+            case 'chokepoint':
+            case 'naval':
+            default: return '12x8';
+        }
     }
 
     showPage(pageId) {
@@ -2896,10 +3141,16 @@ class MenuSystem {
     }
 
     setupMenuEventListeners() {
+        console.log("Setting up menu event listeners...");
+        
         // Home page buttons
-        document.getElementById('quickMatchBtn').addEventListener('click', () => {
-            this.showPage('quickMatchPage');
-        });
+        const quickMatchBtn = document.getElementById('quickMatchBtn');
+        console.log("Found quickMatchBtn:", !!quickMatchBtn);
+        if (quickMatchBtn) {
+            quickMatchBtn.addEventListener('click', () => {
+                this.showPage('quickMatchPage');
+            });
+        }
 
         document.getElementById('customRulesBtn').addEventListener('click', () => {
             this.showPage('customRulesPage');
@@ -2919,13 +3170,31 @@ class MenuSystem {
         });
 
         // Start game buttons
-        document.getElementById('startQuickGameBtn').addEventListener('click', () => {
-            this.startQuickMatch();
-        });
+        const startQuickGameBtn = document.getElementById('startQuickGameBtn');
+        console.log("Found startQuickGameBtn:", !!startQuickGameBtn);
+        if (startQuickGameBtn) {
+            startQuickGameBtn.addEventListener('click', () => {
+                console.log("Start Quick Game button clicked!");
+                try {
+                    this.startQuickMatch();
+                } catch (error) {
+                    console.error("Error starting quick match:", error);
+                }
+            });
+        }
 
-        document.getElementById('startCustomGameBtn').addEventListener('click', () => {
-            this.startCustomMatch();
-        });
+        const startCustomGameBtn = document.getElementById('startCustomGameBtn');
+        console.log("Found startCustomGameBtn:", !!startCustomGameBtn);
+        if (startCustomGameBtn) {
+            startCustomGameBtn.addEventListener('click', () => {
+                console.log("Start Custom Game button clicked!");
+                try {
+                    this.startCustomMatch();
+                } catch (error) {
+                    console.error("Error starting custom match:", error);
+                }
+            });
+        }
 
         // Back to menu from game
         const backToMenuBtn = document.getElementById('backToMenuBtn');
@@ -3012,23 +3281,33 @@ class MenuSystem {
                 }
             }
         }
+    }
 
-        // Help modal close
-        document.getElementById('closeHelpBtn').addEventListener('click', () => {
-            document.getElementById('helpModal').classList.add('hidden');
-        });
-
-        // Close modals when clicking outside
-        document.addEventListener('click', (e) => {
-            if (e.target.classList.contains('modal')) {
-                e.target.classList.add('hidden');
-            }
-        });
+    updateQuickMapPreview(mapPreset) {
+        const previewElement = document.getElementById('quickMapPreview');
+        if (previewElement) {
+            const mapSize = this.getMapSizeFromPreset(mapPreset);
+            const mapNames = {
+                'default': 'Default',
+                'small': 'Small',
+                'large': 'Large', 
+                'islands': 'Islands',
+                'chokepoint': 'Chokepoint',
+                'naval': 'Naval Warfare'
+            };
+            const mapName = mapNames[mapPreset] || 'Default';
+            previewElement.textContent = `Map: ${mapName} (${mapSize})`;
+        }
     }
 
     startQuickMatch() {
         const quickGameMode = document.getElementById('quickGameMode').value;
         const playerCount = parseInt(document.getElementById('playerCount').value);
+        const mapPreset = document.getElementById('quickMapPreset').value;
+        const fogOfWar = document.getElementById('quickFogOfWar').checked;
+        
+        // Derive map size from preset
+        const mapSizeFromPreset = this.getMapSizeFromPreset(mapPreset);
         
         // Collect individual bot difficulties
         const botDifficulties = {};
@@ -3046,11 +3325,12 @@ class MenuSystem {
             gameMode: quickGameMode,
             players: quickGameMode === 'singleplayer' ? 2 : playerCount,
             botDifficulties: Object.keys(botDifficulties).length > 0 ? botDifficulties : { 2: 'medium' },
+            fogOfWar: fogOfWar,
             startingMoney: 2000,
             incomePerTurn: 500,
             actionsPerTurn: 5,
-            mapPreset: 'default',
-            mapSize: '12x8',
+            mapPreset: mapPreset,
+            mapSize: mapSizeFromPreset,
             turnLimit: false,
             maxTurns: null
         };
@@ -3068,6 +3348,7 @@ class MenuSystem {
         const mapSize = document.getElementById('mapSize').value;
         const turnLimitEnabled = document.getElementById('turnLimitEnabled').checked;
         const maxTurns = turnLimitEnabled ? parseInt(document.getElementById('maxTurns').value) : null;
+        const fogOfWar = document.getElementById('fogOfWar').checked;
 
         // Collect individual bot difficulties
         const botDifficulties = {};
@@ -3084,6 +3365,7 @@ class MenuSystem {
             gameMode: gameMode,
             players: gameMode === 'singleplayer' ? playerCount : playerCount,
             botDifficulties: Object.keys(botDifficulties).length > 0 ? botDifficulties : { 2: 'medium' },
+            fogOfWar: fogOfWar,
             startingMoney: startingMoney,
             incomePerTurn: incomePerTurn,
             actionsPerTurn: actionsPerTurn,
@@ -3097,6 +3379,7 @@ class MenuSystem {
     }
 
     startGame(gameSettings) {
+        console.log("Starting game with settings:", gameSettings);
         this.showPage('gamePage');
         
         // Clear existing game log
@@ -3106,11 +3389,19 @@ class MenuSystem {
         }
 
         // Create new game with settings
+        console.log("Creating new StrategyGame instance...");
         this.game = new StrategyGame(gameSettings);
+        console.log("Game instance created:", this.game);
     }
 }
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', () => {
-    window.menuSystem = new MenuSystem();
+    console.log("DOM loaded, initializing MenuSystem...");
+    try {
+        window.menuSystem = new MenuSystem();
+        console.log("MenuSystem initialized successfully:", window.menuSystem);
+    } catch (error) {
+        console.error("Error initializing MenuSystem:", error);
+    }
 });
